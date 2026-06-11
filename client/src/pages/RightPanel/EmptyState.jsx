@@ -67,7 +67,7 @@ export default function EmptyChatState() {
 
                 {/* Text Content */}
                 <h2 className="text-4xl font-bold mb-4  dark:text-white bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">
-                    ConvoX for Desktop
+                    Nexus for Desktop
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed mb-8">
                     Send and receive messages instantly. Stay connected with your friends and family.

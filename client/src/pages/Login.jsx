@@ -1,8 +1,8 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {  z } from 'zod';
+import { z } from 'zod';
 import { useEffect, useState } from 'react';
-import { login as loginEndpoint, signup} from "../services/auth"
+import { login as loginEndpoint, signup } from "../services/auth"
 import { useAuth } from '../store/auth';
 
 // Define Zod schemas for login and signup
@@ -12,7 +12,7 @@ const loginSchema = z.object({
 });
 
 const signupSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
+  name: z.string().min(3, 'Name must be at least 3 characters'),
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
@@ -52,8 +52,9 @@ export default function Login() {
   };
 
   const onSignupSubmit = (data) => {
-     signup(data.email, data.password, data.password).then((res) => {
+    signup(data.email, data.password, data.name).then((res) => {
       setUser(res.data.user)
+      res.data.errors && setGoogleError(res.data.errors[0].msg)
     }).catch(err => {
       setGoogleError(err.response.data.message)
     })
@@ -85,7 +86,7 @@ export default function Login() {
         <div className="max-w-md mx-auto w-full">
           <div className="flex items-center gap-1 min-w-fit mb-8">
 
-            <span className="text-3xl  text-blue-600 dark:text-white hidden sm:block zalando font-semibold">ConvoX</span>
+            <span className="text-3xl  text-blue-600 dark:text-white hidden sm:block zalando font-semibold">Nexus</span>
             <svg className="w-5 h-5 text-blue-600 dark:text-white" viewBox="0 0 24 24" fill="currentColor">
               <path d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>

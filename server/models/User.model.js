@@ -7,7 +7,8 @@ const userSchema = new Schema({
   googleId: { type: String, default: null },
   name: { type: String, required: true },
   provider: { type: String, enum: ['local', 'google'], default: 'local' },
-  lastSeen: { type: Date, default: null }
+  lastSeen: { type: Date, default: null },
+  isBot: { type: Boolean, default: false } 
 });
 
 export default model("User", userSchema);

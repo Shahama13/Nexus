@@ -7,7 +7,7 @@ export default function MyProfile() {
   const { clearUser, user } = useAuth()
   const [username, setUsername] = useState(user.email.split("@")[0])
   const [name, setName] = useState(user.name)
-  const [about, setAbout] = useState('Hey there! I am using ConvoX.')
+  const [about, setAbout] = useState('Hey there! I am using Nexus.')
 
   const [editingField, setEditingField] = useState(null)
   const [tempValue, setTempValue] = useState('')

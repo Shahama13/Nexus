@@ -21,7 +21,24 @@ export default function ChatList() {
   useEffect(() => {
     getMyChats()
       .then(res => {
-        setChats(res.data.chats)
+        const mappedChats = res.data.chats.map((chat) => {
+          const otherUser = chat?.participants?.find(c => c._id !== user._id);
+          return {
+            ...chat,
+            title: chat.isGroupChat ? chat.name : otherUser?.name || "Chat",
+            isChatBot: chat.name === "Nexus AI"
+          }
+        }
+        )
+
+
+        const aiChat = mappedChats.filter(c => c.isChatBot === true)
+        const regularChats = mappedChats.filter(c => !c.isChatBot)
+        const sortedByAiChatFirst = [...aiChat, ...regularChats]
+
+
+        setChats(sortedByAiChatFirst)
+
         setLoading(false)
       })
       .catch(err => {
@@ -30,9 +47,10 @@ export default function ChatList() {
       })
   }, [])
 
-  const filteredChats = chats.filter(chat =>
-    chat.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredChats = chats.filter((chat) => {
+
+    return chat.title.toLowerCase().includes(searchQuery.toLowerCase())
+  })
 
   const newChatEventHandler = useCallback((data) => {
     setChats(prev => [data, ...prev])
@@ -117,24 +135,24 @@ export default function ChatList() {
 
         <div className="space-y-2">
           {filteredChats.map(chat => {
-            const otherUser = chat?.participants?.find(c => c._id !== user._id)
-            const title = chat.isGroupChat ? chat.name : otherUser?.name || "Chat"
-            const avatarChar = title?.charAt(0)?.toUpperCase() || "C"
+
+            const avatarChar = chat.title?.charAt(0)?.toUpperCase() || "C"
+            const isBot = chat.name === "Nexus AI"
 
             return (
               <div
                 key={chat._id}
                 onClick={(e) => {
                   if (e.target.closest('.ellipsis-button')) return
-                  setActiveChat({ ...chat, name: title })
+                  setActiveChat({ ...chat, name: chat.title })
+                  if (isBot) return setRightView("Nexus_AI")
                   removeUnread(chat._id)
                   setRightView('CHAT_HISTORY')
                 }}
-                className={`group relative flex items-center gap-3 p-3 pr-12 rounded-xl cursor-pointer transition-all ${
-                  activeChat?._id === chat._id
-                    ? 'bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-slate-700'
-                    : 'bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-blue-500/10 dark:hover:bg-slate-750'
-                }`}
+                className={`group relative flex items-center gap-3 p-3 pr-12 rounded-xl cursor-pointer transition-all ${activeChat?._id === chat._id
+                  ? 'bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-slate-700'
+                  : 'bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-blue-500/10 dark:hover:bg-slate-750'
+                  }`}
               >
                 {/* Ellipsis is ALWAYS rendered, absolutely positioned, and only fades in on hover */}
                 {chat.isGroupChat && (
@@ -159,7 +177,7 @@ export default function ChatList() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
                     <h3 className="font-semibold text-gray-900 dark:text-white truncate text-sm">
-                      {title}
+                      {chat.title}
                     </h3>
                     {unreadByChat[chat._id] > 0 && (
                       <span className="ml-2 bg-blue-600 text-white text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0">

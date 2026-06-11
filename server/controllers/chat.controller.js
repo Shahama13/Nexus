@@ -58,7 +58,7 @@ const chatCommonAggregation = () => {
                     },
                 ]
             }
-        }, 
+        },
         {
             $addFields: {
                 lastMessage: { $first: "$lastMessage" }
@@ -320,7 +320,8 @@ export const searchAvailableUsers = tryCatchWrapper(async (req, res, next) => {
             $match: {
                 _id: {
                     $ne: req.user._id
-                }
+                },
+                isBot: false
             }
         },
         {
