@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+#root {
+  font-family: "Roboto Slab", serif;
+  font-weight: 400;
+  font-style: normal;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+
+.ubuntu-medium {
+   font-family: "Roboto Slab", serif;
+  font-weight: 500;
+  font-style: normal;
+}
+
+.ubuntu-bold {
+   font-family: "Roboto Slab", serif;
+
+  font-weight: 700;
+  font-style: normal;
+}
+
+.ubuntu-light-italic {
+   font-family: "Roboto Slab", serif;
+
+  font-weight: 300;
+  font-style: italic;
+}
+
+.ubuntu-regular-italic {
+   font-family: "Roboto Slab", serif;
+
+  font-weight: 400;
+  font-style: italic;
+}
+
+.ubuntu-medium-italic {
+   font-family: "Roboto Slab", serif;
+
+  font-weight: 500;
+  font-style: italic;
+}
+
+.ubuntu-bold-italic {
+   font-family: "Roboto Slab", serif;
+
+  font-weight: 700;
+  font-style: italic;
+}
+
+/* in your global CSS or tailwind.css */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari, Opera */
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+/* Smooth breathing effect for typing indicator */
+@keyframes typingBreathe {
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.95);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-typing {
+  animation: typingBreathe 1.5s ease-in-out infinite;
+}
+
