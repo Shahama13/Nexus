@@ -3,6 +3,7 @@ import { errorMiddleware } from './middlewares/error.middleware.js'
 import authRouter from './routes/auth.route.js'
 import chatRouter from './routes/chat.route.js'
 import messageRouter from './routes/message.route.js'
+import aiRoute from './routes/ai.route.js'
 import cors from "cors"
 import passport from 'passport'
 import cookieParser from 'cookie-parser'
@@ -22,6 +23,7 @@ app.use(passport.initialize())
 app.use("/api/v1/auth", authRouter)
 app.use("/api/v1", chatRouter)
 app.use("/api/v1", messageRouter)
+app.use("/", aiRoute)
 
 app.get('/', (req, res) => {
   res.send('Hello World!')

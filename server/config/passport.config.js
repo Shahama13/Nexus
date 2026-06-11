@@ -2,8 +2,10 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import User from "../models/User.model.js";
+import Chat from "../models/Chat.model.js";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 
 dotenv.config();
 
@@ -47,6 +49,15 @@ passport.use(new GoogleStrategy({
             googleId: profile.id,
             name: profile.displayName,
         });
+
+
+        await Chat.create({
+            name: "Nexus AI",
+            isGroupChat: false,
+            participants: [user._id, new mongoose.Types.ObjectId(process.env.BOT_USER_ID)],
+            admin: new mongoose.Types.ObjectId(process.env.BOT_USER_ID)
+        });
+
     }
 
     return done(null, user);

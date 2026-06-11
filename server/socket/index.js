@@ -298,13 +298,13 @@ export const initSocket = io => {
         // });
 
         for (const participantId of chat.participants) {
-          if (participantId.toString() !== user._id.toString()) {
+          // if (participantId.toString() !== user._id.toString()) {
             await pub.publish("new-message-alert", JSON.stringify({
               participantId: participantId.toString(),
               chatId, sender: user, content
             }))
             // io.to(participantId.toString()).emit(NEW_MESSAGE_ALERT, { chatId, sender: user, content });
-          }
+          // }
         }
 
 

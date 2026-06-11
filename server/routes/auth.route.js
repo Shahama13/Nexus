@@ -7,6 +7,8 @@ import User from "../models/User.model.js";
 import { CustomError, tryCatchWrapper } from "../middlewares/error.middleware.js";
 import { body, validationResult } from "express-validator";
 import { signUpValidator } from "../validators/auth.validator.js";
+import mongoose from "mongoose";
+import Chat from "../models/Chat.model.js";
 const router = express.Router();
 
 router.post("/signup", signUpValidator, tryCatchWrapper(
@@ -26,6 +28,14 @@ router.post("/signup", signUpValidator, tryCatchWrapper(
             provider: "local",
             name
         });
+        await Chat.create({
+            name: "Nexus AI",
+            isGroupChat: false,
+            participants: [user._id, new mongoose.Types.ObjectId(process.env.BOT_USER_ID)],
+            admin: new mongoose.Types.ObjectId(process.env.BOT_USER_ID)
+
+        });
+
 
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: `${process.env.EXPIRES_IN}d` });
         res

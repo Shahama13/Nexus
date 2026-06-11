@@ -11,6 +11,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@langchain/google-genai": "^2.1.31",
     "bcrypt": "^6.0.0",
     "body-parser": "^2.2.1",
     "cookie-parser": "^1.4.7",
@@ -20,11 +21,14 @@
     "express-validator": "^7.3.2",
     "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.3",
+    "langchain": "^1.4.4",
     "mongoose": "^9.1.1",
     "nodemon": "^3.1.11",
+    "openai": "^6.42.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-local": "^1.0.0",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "zod": "^4.4.3"
   }
 }
