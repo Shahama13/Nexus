@@ -1,9 +1,10 @@
 import express from "express";
-import { streamChat } from "../service/auth.service.js";
+import { streamChat } from "../service/ai.service.js";
+import { authenticateToken } from "../middlewares/auth.middleware.js";
 
 const router = express.Router()
 
-// router.use(authenticateToken)
+router.use(authenticateToken)
 router.post("/chat", streamChat)
 
 

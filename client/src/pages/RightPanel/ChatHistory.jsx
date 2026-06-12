@@ -395,7 +395,7 @@ const ChatHistory = () => {
                 </div>
               )}
 
-              <div className={`flex flex-col ${item.isOwn ? 'items-end' : 'items-start'} max-w-md`}>
+              <div className={`flex flex-col ${item.isOwn ? 'items-end' : 'items-start'} max-w-3xl`}>
                 {!item.isOwn && activeChat.isGroupChat && (
                   <span className="text-xs text-gray-500 dark:text-gray-400 mb-1 px-1">
                     {item.sender.name}

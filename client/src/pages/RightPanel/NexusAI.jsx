@@ -124,86 +124,78 @@ const NexusAI = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
 
         setMessage('')
+        try {
 
+            const response = await streamResponse(msg, activeChat._id)
 
-        const response = await fetch("http://localhost:3000/chat", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                messages: [
-                    {
-                        role: "user",
-                        content: msg,
-                    },
-                ],
-            }),
-        })
+            const reader = response.body.getReader()
+            const decoder = new TextDecoder()
 
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
+            let result = ""
+            const aiTempId = crypto.randomUUID();
 
-        let result = ""
-        const aiTempId = crypto.randomUUID();
+            while (true) {
+                const { done, value } = await reader.read()
+                console.log({ done, value })
 
-        while (true) {
-            const { done, value } = await reader.read()
-            console.log({ done, value })
+                if (done) break
 
-            if (done) break
+                const chunk = decoder.decode(value)
+                console.log("RAW CHUNK:", chunk)
+                const lines = chunk.split("\n")
 
-            const chunk = decoder.decode(value)
-            console.log("RAW CHUNK:", chunk)
-            const lines = chunk.split("\n")
+                for (const line of lines) {
+                    if (line.startsWith("data: ")) {
+                        const data = JSON.parse(line.slice(6))
 
-            for (const line of lines) {
-                if (line.startsWith("data: ")) {
-                    const data = JSON.parse(line.slice(6))
+                        if (data.token) {
 
-                    if (data.token) {
-                        result += data.token
+                            
+                            result += data.token
 
-                        console.log(result)
+                            console.log(result)
 
 
 
-                        setMessages((prev) => {
-                            const existingText = prev.find(p => p.id === aiTempId)
+                            setMessages((prev) => {
+                                const existingText = prev.find(p => p.id === aiTempId)
 
-                            if (existingText) {
-                                return prev.map((p) =>
-                                    p.id === aiTempId
-                                        ? {
-                                            ...p,
-                                            text: result,
-                                        }
-                                        : p
-                                )
-                            }
-
-                            return [
-                                ...prev,
-                                {
-                                    id: aiTempId,
-                                    chatId: activeChat._id,
-                                    sender: { name: user.name, _id: user._id },
-                                    text: result,
-                                    isOwn: false,
+                                if (existingText) {
+                                    return prev.map((p) =>
+                                        p.id === aiTempId
+                                            ? {
+                                                ...p,
+                                                text: result,
+                                            }
+                                            : p
+                                    )
                                 }
-                            ]
-                        })
 
-                    }
+                                return [
+                                    ...prev,
+                                    {
+                                        id: aiTempId,
+                                        chatId: activeChat._id,
+                                        sender: { name: user.name, _id: user._id },
+                                        text: result,
+                                        isOwn: false,
+                                    }
+                                ]
+                            })
 
-                    if (data.done) {
-                        console.log("Stream finished")
+                        }
+
+                        if (data.done) {
+                            console.log("Stream finished")
+                        }
                     }
                 }
             }
+
+
+        } catch (error) {
+            console.log(error, "error in streaming responsnes")
         }
-
-
 
 
 
@@ -278,8 +270,8 @@ const NexusAI = () => {
             <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
                 <div className="flex items-center gap-3 cursor-pointer">
                     <div className="relative">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-lg font-semibold">
-                            {activeChat?.name?.charAt(0).toUpperCase()}
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-semibold">
+                            🤖
                         </div>
 
                     </div>
@@ -321,7 +313,7 @@ const NexusAI = () => {
                         >
 
 
-                            <div className={`flex flex-col ${item.isOwn ? 'items-end' : 'items-start'} max-w-md`}>
+                            <div className={`flex flex-col ${item.isOwn ? 'items-end' : 'items-start'} max-w-3xl`}>
                                 {!item.isOwn && activeChat.isGroupChat && (
                                     <span className="text-xs text-gray-500 dark:text-gray-400 mb-1 px-1">
                                         {item.sender.name}
@@ -353,10 +345,7 @@ const NexusAI = () => {
                                         )}
 
                                         <div className="px-4 flex flex-col">
-                                            <p className="text-sm leading-relaxed break-words">{item.text}</p>
-                                            <span className={`self-end text-xs mt-1 px-1 ${item.isOwn ? 'text-gray-100' : 'text-gray-400 dark:text-gray-300'}`}>
-                                                34
-                                            </span>
+                                            <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{item.text}</p>   
                                         </div>
 
 

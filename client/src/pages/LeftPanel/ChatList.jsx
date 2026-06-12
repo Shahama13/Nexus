@@ -49,13 +49,30 @@ export default function ChatList() {
 
   const filteredChats = chats.filter((chat) => {
 
-    return chat.title.toLowerCase().includes(searchQuery.toLowerCase())
+    return chat?.title?.toLowerCase().includes(searchQuery.toLowerCase())
   })
 
-  const newChatEventHandler = useCallback((data) => {
-    setChats(prev => [data, ...prev])
-  }, [])
+  const newChatEventHandler = (data) => {
 
+    // Format the new chat
+    const otherUser = data?.participants?.find(c => c._id !== user._id);
+    const formattedChat = {
+      ...data,
+      title: data.isGroupChat ? data.name : otherUser?.name || "Chat",
+      isChatBot: data.name === "Nexus AI"
+    }
+
+    // Add to list and re-sort
+    setChats(prev => {
+      const newChats = [formattedChat, ...prev]
+
+      // Sort: AI chats first, then regular chats
+      const aiChats = newChats.filter(c => c.isChatBot === true)
+      const regularChats = newChats.filter(c => !c.isChatBot)
+
+      return [...aiChats, ...regularChats]
+    })
+  }
   const newMessageAlertHandler = ({ chatId, sender, content }) => {
     if (activeChat?._id.toString() !== chatId.toString() && sender._id.toString() !== user._id.toString()) {
       addUnread(chatId)
@@ -170,8 +187,8 @@ export default function ChatList() {
                   </button>
                 )}
 
-                <div className="h-11 w-11 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-                  {avatarChar}
+                <div className="h-11 w-11 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-2xl flex-shrink-0">
+                  {!isBot ? avatarChar : "🤖"}
                 </div>
 
                 <div className="flex-1 min-w-0">
