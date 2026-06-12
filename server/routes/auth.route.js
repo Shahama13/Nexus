@@ -37,7 +37,7 @@ router.post("/signup", signUpValidator, tryCatchWrapper(
         });
 
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: `${process.env.EXPIRES_IN}d` });
+        const token = jwt.sign({ id: user._id, name: user.name }, process.env.JWT_SECRET, { expiresIn: `${process.env.EXPIRES_IN}d` });
         res
             .cookie("token", token, { httpOnly: true, secure: false, maxAge: process.env.EXPIRES_IN * 24 * 60 * 60 * 1000 })
             .status(201)
@@ -55,7 +55,7 @@ router.post("/login", (req, res, next) => {
         }
 
         const token = jwt.sign(
-            { id: user._id },
+            { id: user._id, name: user.name },
             process.env.JWT_SECRET,
             { expiresIn: `${process.env.EXPIRES_IN}d` }
         );
@@ -93,7 +93,7 @@ router.get("/google/callback", (req, res, next) => {
             );
         }
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: `${process.env.EXPIRES_IN}d` });
+        const token = jwt.sign({ id: user._id, name:user.name }, process.env.JWT_SECRET, { expiresIn: `${process.env.EXPIRES_IN}d` });
 
         return res
             .cookie("token", token, { httpOnly: true, secure: false, maxAge: process.env.EXPIRES_IN * 24 * 60 * 60 * 1000 })

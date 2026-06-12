@@ -164,7 +164,7 @@ export const initSocket = io => {
         // const isOnline =
         //   onlineUsers.has(userId) &&
         //   onlineUsers.get(userId).size > 0;
-       const isOnline = (await redisClient.scard(`online:${userId}`)) > 0
+        const isOnline = (await redisClient.scard(`online:${userId}`)) > 0
         let lastSeen = null
         if (!isOnline) {
           lastSeen = await UserModel.findById(userId).select("lastSeen")
@@ -252,62 +252,105 @@ export const initSocket = io => {
       );
 
       socket.on(NEW_MESSAGE_EVENT, async msg => {
-        const { chatId, content, tempId, threadId } = msg;
+        try {
+          const { chatId, content, tempId, threadId } = msg;
 
-        const chat = await ChatModel.findById(chatId);
-        if (!chat) return;
-        const isParticipant = chat.participants.some(
-          id => id.equals(user._id)
-        );
+          const chat = await ChatModel.findById(chatId);
+          if (!chat) return;
+          const isParticipant = chat.participants.some(
+            id => id.equals(user._id)
+          );
 
-        if (!isParticipant) return;
-        const savedMessage = await MessageModel.create({
-          sender: user._id,
-          content,
-          chat: chatId,
-          threadId: threadId ? new mongoose.Types.ObjectId(threadId.id) : null
-        });
+          if (!isParticipant) return;
+          const savedMessage = await MessageModel.create({
+            sender: user._id,
+            content,
+            chat: chatId,
+            threadId: threadId ? new mongoose.Types.ObjectId(threadId.id) : null
+          });
 
-        await ChatModel.findByIdAndUpdate(chatId, {
-          $set: {
-            lastMessage: new mongoose.Types.ObjectId(savedMessage._id)
-          }
-        })
-
-        await pub.publish(
-          "chat-message",
-          JSON.stringify({
-            id: savedMessage._id,
-            chatId,
-            sender: { _id: user._id, name: user.name },
-            text: savedMessage.content,
+          const cacheMessage = {
+            _id: savedMessage._id,
+            sender: {
+              _id: user._id,
+              name: user.name
+            },
+            chat: chatId,
+            content: savedMessage.content,
             createdAt: savedMessage.createdAt,
-            threadId: threadId ? { _id: threadId.id, sender: threadId.sender, content: threadId.text } : null,
-            tempId
+            threadId: threadId
+              ? {
+                _id: threadId.id,
+                sender: threadId.sender,
+                content: threadId.text
+              }
+              : null
+          }
+
+          const redisKey = `chat:${chatId}:recent`;
+
+          await Promise.all([
+            redisClient.rpush(
+              redisKey,
+              JSON.stringify(cacheMessage)
+            )
+            ,
+            redisClient.ltrim(
+              redisKey,
+              -30,
+              -1
+            )
+          ])
+
+
+
+          await ChatModel.findByIdAndUpdate(chatId, {
+            $set: {
+              lastMessage: new mongoose.Types.ObjectId(savedMessage._id)
+            }
           })
-        );
 
-        // io.to(chatId).emit(NEW_MESSAGE_EVENT, {
-        //   id: savedMessage._id,
-        //   chatId,
-        //   sender: { _id: user._id, name: user.name },
-        //   text: savedMessage.content,
-        //   createdAt: savedMessage.createdAt,
-        //   threadId: threadId ? { _id: threadId.id, sender: threadId.sender, content: threadId.text } : null,
-        //   tempId
-        // });
+          await pub.publish(
+            "chat-message",
+            JSON.stringify({
+              id: savedMessage._id,
+              chatId,
+              sender: { _id: user._id, name: user.name },
+              text: savedMessage.content,
+              createdAt: savedMessage.createdAt,
+              threadId: threadId ? { _id: threadId.id, sender: threadId.sender, content: threadId.text } : null,
+              tempId
+            })
+          );
 
-        for (const participantId of chat.participants) {
-          // if (participantId.toString() !== user._id.toString()) {
+          // io.to(chatId).emit(NEW_MESSAGE_EVENT, {
+          //   id: savedMessage._id,
+          //   chatId,
+          //   sender: { _id: user._id, name: user.name },
+          //   text: savedMessage.content,
+          //   createdAt: savedMessage.createdAt,
+          //   threadId: threadId ? { _id: threadId.id, sender: threadId.sender, content: threadId.text } : null,
+          //   tempId
+          // });
+
+          for (const participantId of chat.participants) {
+            // if (participantId.toString() !== user._id.toString()) {
             await pub.publish("new-message-alert", JSON.stringify({
               participantId: participantId.toString(),
               chatId, sender: user, content
             }))
             // io.to(participantId.toString()).emit(NEW_MESSAGE_ALERT, { chatId, sender: user, content });
-          // }
+            // }
+          }
+
+
+        } catch (error) {
+          console.error("Error in NEW_MESSAGE_EVENT:", error);
+          socket.emit("message_error", {
+            tempId,
+            error: error.message || "Failed to send message"
+          });
         }
-
-
 
       });
 
