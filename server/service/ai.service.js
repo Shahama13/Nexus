@@ -3,9 +3,17 @@ import { OpenAI } from "openai";
 import MessageModel from "../models/Message.model.js";
 import { tryCatchWrapper } from "../middlewares/error.middleware.js";
 import { redisClient } from "../config/redis.config.js";
+import { QdrantClient } from "@qdrant/js-client-rest";
+import { MemoryClient } from "mem0ai";
+
 
 const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
+});
+
+
+const mem0 = new MemoryClient({
+    apiKey: process.env.MEM0_API_KEY,
 });
 
 
@@ -20,7 +28,28 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
     //TODO: later get msgs from db for contenxt in case redis doesnt have acached texts
 
     const redisKey = `chat:${chatId}:recent`
-    const cachedMessages = await redisClient.lrange(redisKey, 0, -1)
+    const cachedMessages = await redisClient.lrange(redisKey, -5, -1)
+
+
+    console.log(cachedMessages, "cachedMessages")
+
+    const memories = await mem0.search(
+        message,
+        { filters: { "user_id": req.user._id.toString() } }
+
+    );
+
+    console.log("SEARCH RESULT:", memories);
+
+    let memoryContext
+
+
+    if (memories.results?.length > 0) {
+        memoryContext = memories.results
+            .map(m => `- ${m.memory}`)
+            .join("\n");
+    }
+
     let openAIMessages = []
     if (cachedMessages && cachedMessages.length > 0) {
         const messages = cachedMessages.map((msg) => JSON.parse(msg))
@@ -29,6 +58,16 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
             content: msg.content
         }))
     }
+
+
+
+    if (memoryContext) {
+        openAIMessages.push({
+            role: "system",
+            content: `Relevant facts about the user:\n${memoryContext}\n\nUse these memories when answering if relevant.`
+        });
+    }
+
     openAIMessages.push(
         {
             role: "user",
@@ -44,7 +83,11 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
             stream: true,
 
         });
+
         let result = ""
+
+
+
         for await (const chunk of stream) {
             const token = chunk.choices[0]?.delta?.content
             if (token) {
@@ -103,6 +146,28 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
         pipeline.rpush(redisKey, JSON.stringify(aiCachedMessage));
         pipeline.ltrim(redisKey, -30, -1);
         await pipeline.exec();
+
+
+        try {
+            const memoryResult = await mem0.add(
+                [
+                    {
+                        role: "user",
+                        content: message,
+                    }
+                ],
+                {
+                    user_id: req.user._id.toString(),
+                }
+            );
+
+            console.log("MEMORY ADD RESULT:", memoryResult);
+        } catch (err) {
+            console.error("MEM0 ADD ERROR:", err);
+        }
+
+
+        // await mem0.add(openAIMessages, { user_id: req.user._id.toString() });
 
 
         res.write(
