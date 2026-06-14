@@ -1,14 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Paperclip, Smile, Send } from 'lucide-react'
+import { Paperclip, Smile, Send, Image, Video, Music, FileText, X, Upload } from 'lucide-react'
 import { useUIStore } from '../../store/uiStore'
 import { useSocket } from '../../socket'
 import { JOIN_CHAT_EVENT, TOGGLE_REACTION_EVENT, NEW_MESSAGE_EVENT, TYPING, USER_ONLINE_EVENT, USER_OFFLINE_EVENT, CHECK_ONLINE_EVENT } from '../../constants/events'
 import { useAuth } from '../../store/auth'
 import { useSocketEvents } from '../../hooks/useSocketEvents'
-import { getMessages, sendMessage } from '../../services/message'
+import { getMessages } from '../../services/message'
 import { flushSync } from 'react-dom'
-import { Reply, X } from 'lucide-react'
+import { Reply, X as XIcon } from 'lucide-react'
 import moment from 'moment/moment'
+import MediaMessage from '../../components/MediaMessage'
+import FileAttachment from '../../components/FileAttachment'
+import { uploadAttachments } from '../../services/attachments'
 
 const ChatHistory = () => {
   const [message, setMessage] = useState('')
@@ -23,9 +26,74 @@ const ChatHistory = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(null);
   const [online, setOnline] = useState(false)
   const [lastSeen, setLastSeen] = useState(null)
+  const [showAttachmentModal, setShowAttachmentModal] = useState(false)
   const { activeChat } = useUIStore()
   const { user } = useAuth()
   const socket = useSocket()
+
+  const [attachments, setAttachments] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+  const modalRef = useRef(null);
+
+  // Close modal when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (modalRef.current && !modalRef.current.contains(event.target)) {
+        setShowAttachmentModal(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleAttachClick = (fileType) => {
+    setShowAttachmentModal(false);
+    // Create a new file input with specific accept attribute
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+
+    switch (fileType) {
+      case 'image':
+        input.accept = 'image/*';
+        break;
+      case 'video':
+        input.accept = 'video/*';
+        break;
+      case 'audio':
+        input.accept = 'audio/*';
+        break;
+      case 'document':
+        input.accept = '.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx';
+        break;
+      default:
+        input.accept = '*/*';
+    }
+
+    input.onchange = (e) => {
+      const files = Array.from(e.target.files);
+      const newAttachments = files.map(file => ({
+        file,
+        preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+        type: file.type,
+        name: file.name,
+        size: file.size
+      }));
+      setAttachments(prev => [...prev, ...newAttachments]);
+    };
+
+    input.click();
+  };
+
+
+  const handleRemoveAttachment = (index) => {
+    // Revoke object URL to prevent memory leaks
+    if (attachments[index]?.preview) {
+      URL.revokeObjectURL(attachments[index].preview);
+    }
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
 
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
@@ -37,13 +105,14 @@ const ChatHistory = () => {
   // Fetch chat details & initial messages
   useEffect(() => {
     if (!activeChat) return
-    // Reset state when chat changes
     setOnline(false);
     setLastSeen(null);
     setMessages([])
     setCurrentPage(1)
     setTotalPages(1)
     setTypingUsers(false)
+    setAttachments([]) // Clear attachments when chat changes
+    setCurrentReply(null) // Clear reply when chat changes
     initialLoadRef.current = true
     fetchMessages(1, true)
     socket.emit(JOIN_CHAT_EVENT, activeChat._id)
@@ -66,9 +135,10 @@ const ChatHistory = () => {
           timestamp: new Date(msg.createdAt).getTime(),
           date: new Date(msg.createdAt).toDateString(),
           threadId: msg.threadId || null,
-          reactions: msg.reactions
+          reactions: msg.reactions,
+          attachments: msg.attachments
         })).reverse()
-      console.log(newMessages)
+
       if (initial) {
         setMessages(newMessages)
         setTotalPages(res.data.totalPages || 1)
@@ -97,67 +167,95 @@ const ChatHistory = () => {
     }
   }
 
-  const handleSendMessage = () => {
-    if (!message.trim()) return
-
+  const handleSendMessage = async () => {
+    if ((!message.trim() && attachments.length === 0) || uploading) return;
     const msg = message.trim()
-    const tempId = crypto.randomUUID();
-    console.log('currentReply:', currentReply)
 
-    //flushSync React ka function hai jo state update ko turant apply karne pe majboor karta hai.Normally React state updates ko batch karta hai. Matlab tum setState karte ho, React thoda wait karta hai, phir ek saath render karta hai. Ye performance ke liye hota hai.Lekin kabhi kabhi tumhe immediately DOM update chahiye hota hai. Tab flushSync use karte hain.
+    if (attachments.length > 0) {
+      setUploading(true);
+      try {
+        const formData = new FormData();
+        attachments.forEach(att => {
+          formData.append('attachments', att.file);
+        });
+        formData.append('chatId', activeChat._id);
+        if (msg) formData.append('caption', msg);
+        if (currentReply) formData.append('threadId', currentReply.id);
 
-    flushSync(() => {
+        const response = await uploadAttachments(formData);
 
+        const newMessage = response.data.message;
+        flushSync(() => {
+          setMessages(prev => [
+            ...prev,
+            {
+              ...newMessage,
+              isOwn: true,
+              pending: false,
+            }
+          ]);
+        });
 
-      setMessages(prev => [
-        ...prev,
-        {
-          id: tempId,
-          chatId: activeChat._id,
-          sender: { name: user.name, _id: user._id },
-          text: msg,
-          isOwn: true,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase(),
-          timestamp: Date.now(),
-          date: new Date().toDateString(),
-          createdAt: new Date().toISOString(),
-          pending: true,
-          threadId: currentReply ? {
-            _id: currentReply.id,
-            sender: currentReply.sender,
-            content: currentReply.text
-          } : null
-        }
-      ])
+        setMessage('');
+        setAttachments([]);
+        setCurrentReply(null);
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 
-    })
+      } catch (error) {
+        console.error('Error uploading attachments:', error);
+        alert('Failed to send attachments');
+      } finally {
+        setUploading(false);
+      }
+    } else if (msg) {
+      const tempId = crypto.randomUUID();
 
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-
-    setMessage('')
-
-    // sendMessage(activeChat._id, msg)
-
-    socket.emit(NEW_MESSAGE_EVENT, {
-      chatId: activeChat._id,
-      content: msg,
-      tempId,
-      threadId: currentReply ? currentReply : null
-    })
-
-    setCurrentReply(null)
-
-    if (typingRef.current) {
-      typingRef.current = false
-      socket.emit(TYPING, {
-        chatId: activeChat._id,
-        typing: false
+      flushSync(() => {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: tempId,
+            chatId: activeChat._id,
+            sender: { name: user.name, _id: user._id },
+            text: msg,
+            isOwn: true,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase(),
+            timestamp: Date.now(),
+            date: new Date().toDateString(),
+            createdAt: new Date().toISOString(),
+            pending: true,
+            threadId: currentReply ? {
+              _id: currentReply.id,
+              sender: currentReply.sender,
+              content: currentReply.text
+            } : null
+          }
+        ])
       })
+
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      setMessage('')
+
+      socket.emit(NEW_MESSAGE_EVENT, {
+        chatId: activeChat._id,
+        content: msg,
+        tempId,
+        threadId: currentReply ? currentReply : null
+      })
+
+      setCurrentReply(null)
+
+      if (typingRef.current) {
+        typingRef.current = false
+        socket.emit(TYPING, {
+          chatId: activeChat._id,
+          typing: false
+        })
+      }
+
+      clearTimeout(timeoutId.current)
     }
-
-    clearTimeout(timeoutId.current)
   }
-
 
   const newMessageHandler = useCallback((message) => {
     if (message.chatId !== activeChat._id) return;
@@ -165,11 +263,21 @@ const ChatHistory = () => {
     flushSync(() => {
       setMessages(prev => {
         const byRealId = prev.find(m => m.id === message.id);
-        if (byRealId) return prev; // already have this message
+        if (byRealId) return prev;
+ // Check if message already exists (by ID or tempId)
+      const exists = prev.find(m => 
+        m.id === message.id || 
+        (message.tempId && m.id === message.tempId)
+      );
+      
+      if (exists) return prev; // ← Don't add if already exists
+
 
         const byTempId = message.tempId
           ? prev.find(m => m.id === message.tempId)
           : null;
+
+          
 
         if (byTempId) {
           return prev.map(m =>
@@ -203,10 +311,8 @@ const ChatHistory = () => {
       flushSync(() => {
         setTypingUsers(typing)
       })
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-
     },
-    [activeChat._id, user._id]
+    [activeChat._id]
   )
 
   const reactionEventHandler = useCallback((data) => {
@@ -219,16 +325,15 @@ const ChatHistory = () => {
           : m
       )
     );
-
   }, [activeChat._id]);
 
   const handleUserOnline = useCallback(({ userId, online, lastSeen }) => {
     if (activeChat && activeChat.isGroupChat) return
-    const userFromActiveChat = activeChat.participants.find((p) => p._id.toString() === userId.toString())
+    const userFromActiveChat = activeChat.participants?.find((p) => p._id.toString() === userId.toString())
     if (!userFromActiveChat) return
     setOnline(online)
     if (lastSeen) setLastSeen(lastSeen)
-  }, [activeChat._id]);
+  }, [activeChat]);
 
   useSocketEvents(socket, {
     [NEW_MESSAGE_EVENT]: newMessageHandler,
@@ -268,16 +373,14 @@ const ChatHistory = () => {
         typing: false
       })
     }, 2000)
-
   }
 
   const handleReply = (item) => {
     setCurrentReply(item)
+    setShowMenu(null)
   }
 
   const handleReaction = (action, messageId, reaction) => {
-    // Implement emoji picker logic here
-
     socket.emit(TOGGLE_REACTION_EVENT, {
       action,
       chatId: activeChat._id,
@@ -286,6 +389,12 @@ const ChatHistory = () => {
     })
   }
 
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '';
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
+  };
 
   // Cleanup on unmount
   useEffect(() => {
@@ -297,22 +406,24 @@ const ChatHistory = () => {
         })
       }
       clearTimeout(timeoutId.current)
+      // Cleanup attachment previews
+      attachments.forEach(att => {
+        if (att.preview) URL.revokeObjectURL(att.preview);
+      });
     }
   }, [activeChat, socket])
-
 
   useEffect(() => {
     if (!activeChat || activeChat.isGroupChat) return;
 
-    const other = activeChat.participants.find(p => p._id.toString() !== user._id.toString());
+    const other = activeChat.participants?.find(p => p._id.toString() !== user._id.toString());
     if (!other) return;
 
     socket.emit(CHECK_ONLINE_EVENT, { userId: other._id }, (res) => {
       setOnline(res.online);
-      setLastSeen(res.lastSeen.lastSeen)
+      setLastSeen(res.lastSeen?.lastSeen)
     });
   }, [activeChat?._id, socket, user._id]);
-
 
   return (
     <div
@@ -330,27 +441,19 @@ const ChatHistory = () => {
             <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-lg font-semibold">
               {activeChat?.name?.charAt(0).toUpperCase()}
             </div>
-            {
-              online &&
+            {online && (
               <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></div>
-            }
+            )}
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{activeChat.name}</h2>
-
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{activeChat?.name}</h2>
             {!activeChat?.isGroupChat && (
               online ? (
-                <p className="text-sm text-green-600 dark:text-green-400">
-                  Online
-                </p>
+                <p className="text-sm text-green-600 dark:text-green-400">Online</p>
               ) : lastSeen ? (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Last seen {moment(lastSeen).fromNow()}
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Last seen {moment(lastSeen).fromNow()}</p>
               ) : (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Offline
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Offline</p>
               )
             )}
           </div>
@@ -370,7 +473,7 @@ const ChatHistory = () => {
           </div>
         )}
 
-        {messages.map(item => {
+        {messages.map((item, idx) => {
           const time = new Date(item.createdAt).toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit',
@@ -382,64 +485,55 @@ const ChatHistory = () => {
 
           return (
             <div
-              key={item.id}
+              key={item.id || idx}
               onMouseEnter={() => setShowMenu(item.id)}
-              onMouseLeave={() => {
-                setShowMenu(null);
-              }}
+              onMouseLeave={() => setShowMenu(null)}
               className={`flex ${item.isOwn ? 'justify-end' : 'justify-start'} items-start gap-2`}
             >
-              {!item.isOwn && activeChat.isGroupChat && (
+              {!item.isOwn && activeChat?.isGroupChat && (
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
                   {item?.sender?.name?.charAt(0).toUpperCase()}
                 </div>
               )}
 
               <div className={`flex flex-col ${item.isOwn ? 'items-end' : 'items-start'} max-w-3xl`}>
-                {!item.isOwn && activeChat.isGroupChat && (
+                {!item.isOwn && activeChat?.isGroupChat && (
                   <span className="text-xs text-gray-500 dark:text-gray-400 mb-1 px-1">
-                    {item.sender.name}
+                    {item.sender?.name}
                   </span>
                 )}
 
                 <div className="relative">
-                  {/* hover action buttons */}
                   {isMenuOpen && (
                     <div
-                      className={`absolute ${item.isOwn ? '-left-20' : '-right-20'} flex items-center gap-1 bg-white/90 dark:bg-gray-900/90 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-full px-1 py-1 shadow`}
+                      className={`absolute ${item.isOwn ? '-left-20' : '-right-20'} flex items-center gap-1 bg-white/90 dark:bg-gray-900/90 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-full px-1 py-1 shadow z-10`}
                     >
                       <button
                         onClick={() => handleReply(item)}
-                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"
+                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition"
                       >
                         <Reply size={16} className="text-gray-600 dark:text-gray-300" />
                       </button>
-
                       <button
-                        onClick={() => {
-                          setShowEmojiPicker(prev => (prev === item.id ? null : item.id));
-                        }}
-                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"
+                        onClick={() => setShowEmojiPicker(prev => (prev === item.id ? null : item.id))}
+                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition"
                       >
                         <Smile size={16} className="text-gray-600 dark:text-gray-300" />
                       </button>
                     </div>
                   )}
 
-                  {/* quick reactions bar */}
                   {isQuickOpen && (
                     <div
                       className={`absolute -top-10 ${item.isOwn ? 'right-4' : 'left-4'} z-30`}
-                      onMouseLeave={() => {
-                        setShowEmojiPicker(null);
-                      }}
+                      onMouseLeave={() => setShowEmojiPicker(null)}
                     >
                       <div className="flex items-center gap-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 py-1 rounded-full shadow">
                         {["👍", "❤️", "😂", "😮", "😢"].map(e => (
                           <button
                             key={e}
                             onClick={() => {
-                              handleReaction("add", item.id, e)
+                              handleReaction("add", item.id, e);
                               setShowEmojiPicker(null);
                             }}
                             className="text-lg hover:scale-125 transition"
@@ -447,26 +541,22 @@ const ChatHistory = () => {
                             {e}
                           </button>
                         ))}
-
                       </div>
-
-
                     </div>
                   )}
 
-                  {/* message bubble */}
                   <div
                     className={`py-2 pb-3 relative rounded-2xl shadow-sm ${item.isOwn
                       ? 'bg-blue-500 text-white rounded-tr-none'
                       : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-tl-none'
-                      }  ${item?.reactions && Object.keys(item?.reactions).length > 0 ? "mb-3" : ""}`}
+                      } ${item?.reactions && Object.keys(item?.reactions).length > 0 ? "mb-3" : ""}`}
                   >
                     {item.threadId && (
                       <div className="mb-2 px-2">
                         <div className={`flex items-center bg-gray-100 dark:bg-gray-700/70 px-4 py-2 rounded-lg ${!item.isOwn ? 'border-l-blue-500' : 'border-l-blue-600'} border-l-4`}>
                           <div className="flex-1 min-w-0">
                             <p className="text-md text-blue-500 dark:text-blue-400 truncate font-semibold">
-                              {user._id === item.threadId.sender._id ? "You" : item.threadId.sender.name}
+                              {user._id === item.threadId.sender?._id ? "You" : item.threadId.sender?.name}
                             </p>
                             <p className="text-sm text-gray-900 dark:text-white truncate">{item.threadId.content}</p>
                           </div>
@@ -474,25 +564,37 @@ const ChatHistory = () => {
                       </div>
                     )}
 
-                    <div className="px-4 flex flex-col">
-                      <p className="text-sm leading-relaxed break-words">{item.text}</p>
-                      <span className={`self-end text-xs mt-1 px-1 ${item.isOwn ? 'text-gray-100' : 'text-gray-400 dark:text-gray-300'}`}>
+                    {item.attachments && item.attachments.length > 0 && (
+                      <div className="px-4">
+                        <MediaMessage attachments={item.attachments} isOwn={item.isOwn} />
+                      </div>
+                    )}
+
+                    {item.text && (
+                      <div className="px-4 flex flex-col">
+                        <p className="text-sm leading-relaxed break-words">{item.text}</p>
+                        <span className={`self-end text-xs mt-1 px-1 ${item.isOwn ? 'text-gray-100' : 'text-gray-400 dark:text-gray-300'}`}>
+                          {time}
+                        </span>
+                      </div>
+                    )}
+
+                    {!item.text && item.attachments && item.attachments.length > 0 && (
+                      <span className={`block text-right text-xs mt-1 px-4 ${item.isOwn ? 'text-gray-100' : 'text-gray-400 dark:text-gray-300'}`}>
                         {time}
                       </span>
-                    </div>
-
-
+                    )}
 
                     {item.reactions && Object.keys(item.reactions).length > 0 && (
                       <div
                         onClick={() => handleReaction("remove", item.id)}
-                        className={`absolute ${item.isOwn ? 'right-2' : 'left-2'} -bottom-5 flex items-center text-sm bg-white/90 dark:bg-gray-900/90 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-full p-1 shadow cursor-pointer hover:bg-gray-600`}>
-
+                        className={`absolute ${item.isOwn ? 'right-2' : 'left-2'} -bottom-5 flex items-center text-sm bg-white/90 dark:bg-gray-900/90 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-full p-1 shadow cursor-pointer hover:bg-gray-600`}
+                      >
                         {Object.entries(item.reactions).map(([emoji, users]) => (
-                          <div key={emoji} className="px-1 ">
+                          <div key={emoji} className="px-1">
                             {emoji}
                             <span className='text-xs'>
-                              {Array.isArray(users) && users.length === 1 ? "" : users.length}
+                              {Array.isArray(users) && users.length > 1 ? users.length : ""}
                             </span>
                           </div>
                         ))}
@@ -507,9 +609,7 @@ const ChatHistory = () => {
 
         {typingUsers && (
           <div className="flex justify-start items-center gap-3">
-            <div className="w-10 h-10 ">
-
-            </div>
+            <div className="w-10 h-10"></div>
             <div className="px-4 py-2 rounded-2xl shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-bl-sm">
               <div className="flex gap-1">
                 <span className="w-2 h-2 bg-gray-500 dark:bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
@@ -527,41 +627,128 @@ const ChatHistory = () => {
       <div className={`flex-shrink-5 border-none bg-white  m-4 dark:bg-gray-800 border-t border-gray-200 rounded-b-4xl dark:border-gray-700  py-2 ${currentReply ? "rounded-t-2xl" : "rounded-t-4xl"}`}>
 
         {currentReply && (
-          <div className="mb-2 px-2">
-            <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-700 px-4 py-2 rounded-lg border-l-blue-500 border-l-5">
-
+          <div className="mb-2 px-4">
+            <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-700 px-4 py-2 rounded-lg border-l-blue-500 border-l-4">
               <div className="flex-1 min-w-0">
-                <p className="text-md text-blue-500 dark:text-blue-400 truncate font-semibold">{user._id === currentReply.sender._id ? "You" : currentReply.sender.name}</p>
+                <p className="text-sm text-blue-500 dark:text-blue-400 truncate font-semibold">
+                  Replying to {user._id === currentReply.sender?._id ? "yourself" : currentReply.sender?.name}
+                </p>
                 <p className="text-sm text-gray-900 dark:text-white truncate">{currentReply.text}</p>
               </div>
               <button onClick={() => setCurrentReply(null)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors">
-                <X size={18} className="text-gray-300 dark:text-slate-500 " />
+                <XIcon size={16} className="text-gray-500" />
               </button>
             </div>
           </div>
         )}
 
-        <div className="flex items-center gap-3 px-6">
-          <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors flex-shrink-0">
+        {/* Attachment Preview Area */}
+        {attachments.length > 0 && (
+          <div className="px-4 mb-2">
+            <div className="flex flex-wrap gap-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              {attachments.map((att, index) => (
+                <div key={index} className="relative group">
+                  {att.type.startsWith('image/') && att.preview ? (
+                    <img src={att.preview} alt={att.name} className="w-20 h-20 object-cover rounded-lg" />
+                  ) : att.type.startsWith('video/') ? (
+                    <div className="w-20 h-20 bg-gray-700 rounded-lg flex items-center justify-center">
+                      <Video size={32} className="text-gray-400" />
+                    </div>
+                  ) : att.type.startsWith('audio/') ? (
+                    <div className="w-20 h-20 bg-gray-700 rounded-lg flex items-center justify-center">
+                      <Music size={32} className="text-gray-400" />
+                    </div>
+                  ) : (
+                    <div className="w-20 h-20 bg-gray-700 rounded-lg flex items-center justify-center">
+                      <FileText size={32} className="text-gray-400" />
+                    </div>
+                  )}
+                  <button
+                    onClick={() => handleRemoveAttachment(index)}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 
+               opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer
+               hover:bg-red-600 focus:outline-none"
+                  >
+                    <X size={14} />
+                  </button>
+
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex relative items-center gap-3 px-4">
+          {/* Attachment Modal */}
+          {showAttachmentModal && (
+            <div
+              ref={modalRef}
+              className="absolute bottom-14 left-4 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
+            >
+              <div className="py-2">
+                <button
+                  onClick={() => handleAttachClick('image')}
+                  className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Image size={20} className="text-green-500" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Photos</span>
+                </button>
+                <button
+                  onClick={() => handleAttachClick('video')}
+                  className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Video size={20} className="text-blue-500" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Videos</span>
+                </button>
+                <button
+                  onClick={() => handleAttachClick('audio')}
+                  className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Music size={20} className="text-purple-500" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Audio</span>
+                </button>
+                <button
+                  onClick={() => handleAttachClick('document')}
+                  className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-t border-gray-200 dark:border-gray-700"
+                >
+                  <FileText size={20} className="text-orange-500" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Documents</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={() => setShowAttachmentModal(!showAttachmentModal)}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors flex-shrink-0"
+            disabled={uploading}
+          >
             <Paperclip size={20} className="text-gray-600 dark:text-gray-400" />
           </button>
+
           <div className="flex-1 relative">
             <input
               type="text"
-              placeholder="Type a message..."
+              placeholder={uploading ? "Uploading..." : "Type a message..."}
               value={message}
               onChange={handleTyping}
               onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
+              disabled={uploading}
               className="w-full px-4 py-3 outline-none bg-inherit text-gray-900 dark:text-white rounded-full focus:outline-none focus:ring-0 "
-            />
 
+            />
           </div>
+
           <button
             onClick={handleSendMessage}
-            disabled={!message?.trim()}
-            className="p-3 hover:bg-blue-500   rounded-full transition-colors flex-shrink-0"
+            disabled={(!message?.trim() && attachments.length === 0) || uploading}
+            className="p-3 bg-blue-500 hover:bg-blue-600 rounded-full transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Send size={20} className="text-white" />
+            {uploading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+            ) : (
+              <Send size={20} className="text-white" />
+            )}
           </button>
         </div>
       </div>

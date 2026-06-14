@@ -11,6 +11,10 @@ const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
+const qdrant = new QdrantClient({
+    url: process.env.QDRANT_ENDPOINT,
+    apiKey: process.env.QDRANT_CLOUD_API_KEY,
+});
 
 const mem0 = new MemoryClient({
     apiKey: process.env.MEM0_API_KEY,

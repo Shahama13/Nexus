@@ -6,7 +6,7 @@ const { Schema, model } = mongoose;
 const messageSchema = new Schema({
     sender: { type: Types.ObjectId, ref: 'User', required: true },
     chat: { type: Types.ObjectId, ref: 'Chat', required: true },
-    content: { type: String, required: true },
+    content: { type: String },
     readBy: [{ type: Types.ObjectId, ref: 'User' }],
     attachments: {
         type: [
@@ -23,7 +23,6 @@ const messageSchema = new Schema({
     reactions: {
         type: Map,
         of: [{ type: Types.ObjectId, ref: 'User' }],
-        
     },
     // Read status for each participant
     readBy: [{ type: Types.ObjectId, ref: 'User' }],

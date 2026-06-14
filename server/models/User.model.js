@@ -8,7 +8,8 @@ const userSchema = new Schema({
   name: { type: String, required: true },
   provider: { type: String, enum: ['local', 'google'], default: 'local' },
   lastSeen: { type: Date, default: null },
-  isBot: { type: Boolean, default: false } 
+  isBot: { type: Boolean, default: false },
+  avatar: { type: String, default: null }
 });
 
 export default model("User", userSchema);
