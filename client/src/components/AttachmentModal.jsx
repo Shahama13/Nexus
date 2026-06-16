@@ -1,7 +1,61 @@
 import { Image, Music, Video } from 'lucide-react'
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 
-const AttachmentModal = ({ modalRef, handleAttachClick }) => {
+const AttachmentModal = ({ setAttachments, setShowAttachmentModal }) => {
+
+    const modalRef = useRef(null);
+
+    // Close modal when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (modalRef.current && !modalRef.current.contains(event.target)) {
+                setShowAttachmentModal(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleAttachClick = (fileType) => {
+        setShowAttachmentModal(false);
+        // Create a new file input with specific accept attribute
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+
+        switch (fileType) {
+            case 'image':
+                input.accept = 'image/*';
+                break;
+            case 'video':
+                input.accept = 'video/*';
+                break;
+            case 'audio':
+                input.accept = 'audio/*';
+                break;
+            case 'document':
+                input.accept = '.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx';
+                break;
+            default:
+                input.accept = '*/*';
+        }
+
+        input.onchange = (e) => {
+            const files = Array.from(e.target.files);
+            const newAttachments = files.map(file => ({
+                file,
+                preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+                type: file.type,
+                name: file.name,
+                size: file.size
+            }));
+            setAttachments(prev => [...prev, ...newAttachments]);
+        };
+
+        input.click();
+    };
+
+
     return (
         <div
             ref={modalRef}

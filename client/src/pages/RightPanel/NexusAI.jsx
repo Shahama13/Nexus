@@ -9,9 +9,17 @@ import { flushSync } from 'react-dom'
 import { Reply, X } from 'lucide-react'
 import moment from 'moment/moment'
 import { streamResponse } from '../../services/ai'
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import AttachmentModal from '../../components/AttachmentModal'
 
 const NexusAI = () => {
     const [message, setMessage] = useState('')
+    const [isResponding, setIsResponding] = useState(false)
+    const [showAttachmentModal, setShowAttachmentModal] = useState(false)
+    const [attachments, setAttachments] = useState([]);
+    const [uploading, setUploading] = useState(false);
+
 
     const [messages, setMessages] = useState([])
     const [currentPage, setCurrentPage] = useState(1)
@@ -30,6 +38,7 @@ const NexusAI = () => {
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView()
     }, [messages])
+
 
 
 
@@ -123,6 +132,8 @@ const NexusAI = () => {
 
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
 
+        setIsResponding(true)
+
         setMessage('')
         try {
 
@@ -150,7 +161,7 @@ const NexusAI = () => {
 
                         if (data.token) {
 
-                            
+
                             result += data.token
 
                             console.log(result)
@@ -187,6 +198,7 @@ const NexusAI = () => {
 
                         if (data.done) {
                             console.log("Stream finished")
+                            setIsResponding(false)
                         }
                     }
                 }
@@ -195,6 +207,8 @@ const NexusAI = () => {
 
         } catch (error) {
             console.log(error, "error in streaming responsnes")
+            setIsResponding(false)
+
         }
 
 
@@ -344,27 +358,19 @@ const NexusAI = () => {
                                             </div>
                                         )}
 
-                                        <div className="px-4 flex flex-col">
+                                        {/* <div className="px-4 flex flex-col">
                                             <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{item.text}</p>   
+                                        </div> */}
+
+                                        <div className="px-4">
+                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                {item.text}
+                                            </ReactMarkdown>
                                         </div>
 
 
 
-                                        {item.reactions && Object.keys(item.reactions).length > 0 && (
-                                            <div
-                                                onClick={() => handleReaction("remove", item.id)}
-                                                className={`absolute ${item.isOwn ? 'right-2' : 'left-2'} -bottom-5 flex items-center text-sm bg-white/90 dark:bg-gray-900/90 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-full p-1 shadow cursor-pointer hover:bg-gray-600`}>
 
-                                                {Object.entries(item.reactions).map(([emoji, users]) => (
-                                                    <div key={emoji} className="px-1 ">
-                                                        {emoji}
-                                                        <span className='text-xs'>
-                                                            {Array.isArray(users) && users.length === 1 ? "" : users.length}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -383,9 +389,18 @@ const NexusAI = () => {
 
 
                 <div className="flex items-center gap-3 px-6">
-                    <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors flex-shrink-0">
+                    {showAttachmentModal && (
+                        <AttachmentModal setAttachments={setAttachments} setShowAttachmentModal={setShowAttachmentModal} />
+                    )}
+
+                    <button
+                        onClick={() => setShowAttachmentModal(!showAttachmentModal)}
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors flex-shrink-0"
+                        disabled={uploading}
+                    >
                         <Paperclip size={20} className="text-gray-600 dark:text-gray-400" />
                     </button>
+
                     <div className="flex-1 relative">
                         <input
                             type="text"
@@ -399,7 +414,7 @@ const NexusAI = () => {
                     </div>
                     <button
                         onClick={handleSendMessage}
-                        disabled={!message?.trim()}
+                        disabled={!message?.trim() || isResponding}
                         className="p-3 hover:bg-blue-500   rounded-full transition-colors flex-shrink-0"
                     >
                         <Send size={20} className="text-white" />
