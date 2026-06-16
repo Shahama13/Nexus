@@ -39,6 +39,8 @@ export default function ChatList() {
 
         setChats(sortedByAiChatFirst)
 
+        console.log(sortedByAiChatFirst, "sortedByAiChatFirst")
+
         setLoading(false)
       })
       .catch(err => {
@@ -210,9 +212,10 @@ export default function ChatList() {
                   ) : lastMessage[chat._id] ? (
                     <p className="text-xs text-gray-500 dark:text-slate-500 truncate">
                       {lastMessage[chat._id].sender._id.toString() === user._id.toString()
-                        ? "YOU:"
+                        ? "You:"
                         : lastMessage[chat._id].sender.name + ":"}{" "}
                       {lastMessage[chat._id].content}
+
                     </p>
                   ) : (
                     <p className="text-xs text-gray-500 dark:text-slate-500 truncate">
@@ -221,7 +224,10 @@ export default function ChatList() {
                         : chat.isGroupChat && chat.lastMessage?.sender?.name
                           ? chat.lastMessage.sender.name + ":"
                           : ""}{" "}
-                      {chat.lastMessage?.content}
+
+                      <span className='capitalize'>{chat.lastMessage?.attachments?.length > 0
+                        ? `${chat.lastMessage.attachments[0].attachmentType}`
+                        : ""}</span>   {chat.lastMessage?.content}
                     </p>
                   )}
                 </div>

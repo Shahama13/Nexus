@@ -1,102 +1,87 @@
-import React, { useState } from 'react'
-import { Image, Video, Music, X, File } from 'lucide-react';
+import { FileText, Music, Video, X } from 'lucide-react'
+import React, { useState, useEffect, useRef } from 'react'
 
-const FileAttachment = ({ onAttach, onRemove, attachments = [] }) => {
+const FileAttachment = ({ index, att, handleRemoveAttachment }) => {
+    const [thumbnail, setThumbnail] = useState(null);
+    const videoRef = useRef(null);
 
-    const [previewUrls, setPreviewUrls] = useState([]);
-
-
-    const getFileIcon = (type) => {
-        if (type.startsWith('image/')) return <Image size={20} />;
-        if (type.startsWith('video/')) return <Video size={20} />;
-        if (type.startsWith('audio/')) return <Music size={20} />;
-        return <File size={20} />;
-    };
-
-
-    const handleFileSelect = () => {
-        const newAttachments = [];
-        for (const file of files) {
-            // Check file size(50MB mx)
-            if (file.size > 50 * 1024 * 1024) {
-                alert('File too large. Maximum 50MB');
-                continue;
-            }
-
-            let preview = null;;
-
-            if (file.startsWith('image/') || file.type.startsWith('video/')) {
-                preview = URL.createObjectURL(file)
-            }
-
-            newAttachments.push({
-                file,
-                preview,
-                type: file.type,
-                name: file.name,
-                size: file.size
-            });
+    useEffect(() => {
+        // Generate thumbnail for video files
+        if (att.type?.startsWith('video/') && att.file) {
+            generateVideoThumbnail(att.file);
         }
-    }
+    }, [att]);
 
-    const removeAttachment = (index) => {
-        if (previewUrls[index]) {
-            URL.revokeObjectURL(previewUrls[index]);
-        }
-        const newAttachments = [...attachments];
-        newAttachments.splice(index, 1);
-        setPreviewUrls(prev => prev.filter((_, i) => i !== index));
-        onRemove(newAttachments);
+    const generateVideoThumbnail = (file) => {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.src = URL.createObjectURL(file);
+
+        video.onloadeddata = () => {
+            // Seek to 1 second or 10% of video duration
+            const seekTime = Math.min(1, video.duration * 0.1);
+            video.currentTime = seekTime;
+        };
+
+        video.onseeked = () => {
+            // Draw video frame to canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = 160;
+            canvas.height = 160;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert to data URL
+            const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.8);
+            setThumbnail(thumbnailUrl);
+            
+            // Cleanup
+            URL.revokeObjectURL(video.src);
+        };
+
+        video.onerror = () => {
+            console.error('Error loading video for thumbnail');
+            // Cleanup on error
+            URL.revokeObjectURL(video.src);
+        };
     };
 
     return (
-        <div>
-
-
-            {/* <input
-                type="file"
-                id='file-input'
-                multiple
-                accept='image/*, video/*, audio/*'
-                style={{ display: 'none' }}
-            /> */}
-
-            {attachments.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    {attachments.map((att, index) => (
-                        <div key={index} className="relative group">
-                            {att.type.startsWith('image/') && att.preview ? (
-                                <img
-                                    src={att.preview}
-                                    alt={att.name}
-                                    className="w-16 h-16 object-cover rounded"
-                                />
-                            ) : att.type.startsWith('video/') && att.preview ? (
-                                <video className="w-16 h-16 object-cover rounded" muted>
-                                    <source src={att.preview} />
-                                </video>
-                            ) : (
-                                <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
-                                    {getFileIcon(att.type)}
-                                </div>
-                            )}
-
-                            <button
-                                onClick={() => removeAttachment(index)}
-                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
-                            >
-                                <X size={14} />
-                            </button>
-
-                            <span className="absolute bottom-0 left-0 right-0 text-xs bg-black bg-opacity-50 text-white truncate px-1 rounded-b">
-                                {att.name.split('.').pop()}
-                            </span>
-                        </div>
-                    ))}
+        <div key={index} className="relative group">
+            {att.type?.startsWith('image/') && att.preview ? (
+                <img src={att.preview} alt={att.name} className="w-20 h-20 object-cover rounded-lg" />
+            ) : att.type?.startsWith('video/') && thumbnail ? (
+                <div className="relative w-20 h-20 rounded-lg overflow-hidden">
+                    <img 
+                        src={thumbnail} 
+                        alt={att.name} 
+                        className="w-full h-full object-cover"
+                    />
+                   
+                </div>
+            ) : att.type?.startsWith('video/') ? (
+                <div className="w-20 h-20 bg-gray-700 rounded-lg flex items-center justify-center animate-pulse">
+                    <Video size={32} className="text-gray-400" />
+                </div>
+            ) : att.type?.startsWith('audio/') ? (
+                <div className="w-20 h-20 bg-gray-700 rounded-lg flex items-center justify-center">
+                    <Music size={32} className="text-gray-400" />
+                </div>
+            ) : (
+                <div className="w-20 h-20 bg-gray-700 rounded-lg flex items-center justify-center">
+                    <FileText size={32} className="text-gray-400" />
                 </div>
             )}
+            <button
+                onClick={() => handleRemoveAttachment(index)}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 
+                    opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer
+                    hover:bg-red-600 focus:outline-none"
+            >
+                <X size={14} />
+            </button>
         </div>
-    )
+    );
 }
 
-export default FileAttachment
+export default FileAttachment;

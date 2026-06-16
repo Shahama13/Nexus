@@ -21,7 +21,7 @@ const MediaMessage = ({ attachments, isOwn }) => {
                     <img
                         src={attachment.url}
                         alt={attachment.fileName || 'Image'}
-                        className="w-[20vw] rounded-lg cursor-pointer hover:opacity-90 transition "
+                        className="w-[30vw] rounded-lg cursor-pointer hover:opacity-90 transition "
                         onClick={() => window.open(attachment.url, '_blank')}
                         loading="lazy"
                     />
@@ -32,42 +32,25 @@ const MediaMessage = ({ attachments, isOwn }) => {
                     <div className="relative group">
                         <video
                             controls
-                            className="w-[20vw] rounded-lg"
+                            className="w-[30vw] rounded-lg"
                             poster={attachment.thumbnail || undefined}
                             preload="metadata"
                         >
                             <source src={attachment.url} type={attachment.mimeType || 'video/mp4'} />
                             Your browser does not support the video tag.
                         </video>
-                        <a
-                            href={attachment.url}
-                            download={attachment.fileName}
-                            className="absolute top-2 right-2 bg-black bg-opacity-50 p-2 rounded-full opacity-0 group-hover:opacity-100 transition"
-                        >
-                            <Download size={16} className="text-white" />
-                        </a>
+
                     </div>
                 );
 
             case 'audio':
                 return (
-                    <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 min-w-[250px]">
-                        <div className="flex items-center gap-3">
-                            <Volume2 size={24} className="text-blue-500" />
-                            <div className="flex-1">
-                                <p className="text-sm font-medium truncate">{attachment.fileName || 'Audio Message'}</p>
-                                <audio controls className="w-full mt-2">
-                                    <source src={attachment.url} type={attachment.mimeType || 'audio/mpeg'} />
-                                </audio>
-                            </div>
-                            <a
-                                href={attachment.url}
-                                download={attachment.fileName}
-                                className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full"
-                            >
-                                <Download size={16} />
-                            </a>
-                        </div>
+                    <div className=" min-w-[250px]">
+
+                        <audio controls className="w-full mt-2">
+                            <source src={attachment.url} type={attachment.mimeType || 'audio/mpeg'} />
+                        </audio>
+
                     </div>
                 );
 

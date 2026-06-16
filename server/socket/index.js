@@ -282,7 +282,8 @@ export const initSocket = io => {
               ? {
                 _id: threadId.id,
                 sender: threadId.sender,
-                content: threadId.text
+                content: threadId.text,
+                attachments: threadId.attachments
               }
               : null
           }
@@ -318,7 +319,11 @@ export const initSocket = io => {
               sender: { _id: user._id, name: user.name },
               text: savedMessage.content,
               createdAt: savedMessage.createdAt,
-              threadId: threadId ? { _id: threadId.id, sender: threadId.sender, content: threadId.text } : null,
+              threadId: threadId ? {
+                _id: threadId.id, sender: threadId.sender, content: threadId.text,
+                attachments: threadId.attachments
+
+              } : null,
               tempId
             })
           );

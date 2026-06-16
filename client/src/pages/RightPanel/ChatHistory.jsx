@@ -11,6 +11,8 @@ import { Reply, X as XIcon } from 'lucide-react'
 import moment from 'moment/moment'
 import MediaMessage from '../../components/MediaMessage'
 import FileAttachment from '../../components/FileAttachment'
+import FilePreview from '../../components/FilePreview.jsx'
+import AttachmentModal from '../../components/AttachmentModal'
 import { uploadAttachments } from '../../services/attachments'
 
 const ChatHistory = () => {
@@ -170,6 +172,7 @@ const ChatHistory = () => {
   const handleSendMessage = async () => {
     if ((!message.trim() && attachments.length === 0) || uploading) return;
     const msg = message.trim()
+    const tempId = crypto.randomUUID();
 
     if (attachments.length > 0) {
       setUploading(true);
@@ -179,22 +182,23 @@ const ChatHistory = () => {
           formData.append('attachments', att.file);
         });
         formData.append('chatId', activeChat._id);
+        formData.append('tempId', tempId);
         if (msg) formData.append('caption', msg);
         if (currentReply) formData.append('threadId', currentReply.id);
 
         const response = await uploadAttachments(formData);
 
         const newMessage = response.data.message;
-        flushSync(() => {
-          setMessages(prev => [
-            ...prev,
-            {
-              ...newMessage,
-              isOwn: true,
-              pending: false,
-            }
-          ]);
-        });
+        // flushSync(() => {
+        //   setMessages(prev => [
+        //     ...prev,
+        //     {
+        //       ...newMessage,
+        //       isOwn: true,
+        //       pending: false,
+        //     }
+        //   ]);
+        // });
 
         setMessage('');
         setAttachments([]);
@@ -208,7 +212,6 @@ const ChatHistory = () => {
         setUploading(false);
       }
     } else if (msg) {
-      const tempId = crypto.randomUUID();
 
       flushSync(() => {
         setMessages(prev => [
@@ -235,7 +238,7 @@ const ChatHistory = () => {
 
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
       setMessage('')
-
+      console.log(currentReply, "currentReply")
       socket.emit(NEW_MESSAGE_EVENT, {
         chatId: activeChat._id,
         content: msg,
@@ -264,20 +267,20 @@ const ChatHistory = () => {
       setMessages(prev => {
         const byRealId = prev.find(m => m.id === message.id);
         if (byRealId) return prev;
- // Check if message already exists (by ID or tempId)
-      const exists = prev.find(m => 
-        m.id === message.id || 
-        (message.tempId && m.id === message.tempId)
-      );
-      
-      if (exists) return prev; // ← Don't add if already exists
+        // Check if message already exists (by ID or tempId)
+        const exists = prev.find(m =>
+          m.id === message.id ||
+          (message.tempId && m.id === message.tempId)
+        );
+
+        if (exists) return prev; // ← Don't add if already exists
 
 
         const byTempId = message.tempId
           ? prev.find(m => m.id === message.tempId)
           : null;
 
-          
+
 
         if (byTempId) {
           return prev.map(m =>
@@ -377,6 +380,7 @@ const ChatHistory = () => {
 
   const handleReply = (item) => {
     setCurrentReply(item)
+    console.log(item, "current reply")
     setShowMenu(null)
   }
 
@@ -546,10 +550,15 @@ const ChatHistory = () => {
                   )}
 
                   <div
-                    className={`py-2 pb-3 relative rounded-2xl shadow-sm ${item.isOwn
-                      ? 'bg-blue-500 text-white rounded-tr-none'
-                      : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-tl-none'
-                      } ${item?.reactions && Object.keys(item?.reactions).length > 0 ? "mb-3" : ""}`}
+                    className={`py-2 pb-3 relative rounded-2xl shadow-sm ${
+                      // Check if it's a media-only message (no text)
+                      !item.text && item.attachments && item.attachments.length > 0
+                        ? '' // No background for media-only messages
+                        : item.isOwn
+                          ? 'bg-blue-500 text-white rounded-tr-none'
+                          : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-tl-none'
+                      } ${item?.reactions && Object.keys(item?.reactions).length > 0 ? "mb-3" : ""
+                      }`}
                   >
                     {item.threadId && (
                       <div className="mb-2 px-2">
@@ -559,13 +568,20 @@ const ChatHistory = () => {
                               {user._id === item.threadId.sender?._id ? "You" : item.threadId.sender?.name}
                             </p>
                             <p className="text-sm text-gray-900 dark:text-white truncate">{item.threadId.content}</p>
+                            {item.threadId?.attachments?.length > 0 && (
+                              <div className="flex flex-wrap gap-2 py-2">
+                                {item.threadId?.attachments?.map((att, index) => (
+                                  <FilePreview index={index} att={att} />
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
                     )}
 
                     {item.attachments && item.attachments.length > 0 && (
-                      <div className="px-4">
+                      <div className={`${!item.text ? 'px-0' : 'px-4'}`}>
                         <MediaMessage attachments={item.attachments} isOwn={item.isOwn} />
                       </div>
                     )}
@@ -633,7 +649,15 @@ const ChatHistory = () => {
                 <p className="text-sm text-blue-500 dark:text-blue-400 truncate font-semibold">
                   Replying to {user._id === currentReply.sender?._id ? "yourself" : currentReply.sender?.name}
                 </p>
+
                 <p className="text-sm text-gray-900 dark:text-white truncate">{currentReply.text}</p>
+                {currentReply?.attachments?.length > 0 && (
+                  <div className="flex flex-wrap gap-2 py-2">
+                    {currentReply.attachments?.map((att, index) => (
+                      <FilePreview index={index} att={att} />
+                    ))}
+                  </div>
+                )}
               </div>
               <button onClick={() => setCurrentReply(null)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors">
                 <XIcon size={16} className="text-gray-500" />
@@ -647,32 +671,7 @@ const ChatHistory = () => {
           <div className="px-4 mb-2">
             <div className="flex flex-wrap gap-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
               {attachments.map((att, index) => (
-                <div key={index} className="relative group">
-                  {att.type.startsWith('image/') && att.preview ? (
-                    <img src={att.preview} alt={att.name} className="w-20 h-20 object-cover rounded-lg" />
-                  ) : att.type.startsWith('video/') ? (
-                    <div className="w-20 h-20 bg-gray-700 rounded-lg flex items-center justify-center">
-                      <Video size={32} className="text-gray-400" />
-                    </div>
-                  ) : att.type.startsWith('audio/') ? (
-                    <div className="w-20 h-20 bg-gray-700 rounded-lg flex items-center justify-center">
-                      <Music size={32} className="text-gray-400" />
-                    </div>
-                  ) : (
-                    <div className="w-20 h-20 bg-gray-700 rounded-lg flex items-center justify-center">
-                      <FileText size={32} className="text-gray-400" />
-                    </div>
-                  )}
-                  <button
-                    onClick={() => handleRemoveAttachment(index)}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 
-               opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer
-               hover:bg-red-600 focus:outline-none"
-                  >
-                    <X size={14} />
-                  </button>
-
-                </div>
+                <FileAttachment att={att} index={index} handleRemoveAttachment={handleRemoveAttachment} key={index} />
               ))}
             </div>
           </div>
@@ -681,41 +680,7 @@ const ChatHistory = () => {
         <div className="flex relative items-center gap-3 px-4">
           {/* Attachment Modal */}
           {showAttachmentModal && (
-            <div
-              ref={modalRef}
-              className="absolute bottom-14 left-4 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
-            >
-              <div className="py-2">
-                <button
-                  onClick={() => handleAttachClick('image')}
-                  className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <Image size={20} className="text-green-500" />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Photos</span>
-                </button>
-                <button
-                  onClick={() => handleAttachClick('video')}
-                  className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <Video size={20} className="text-blue-500" />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Videos</span>
-                </button>
-                <button
-                  onClick={() => handleAttachClick('audio')}
-                  className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <Music size={20} className="text-purple-500" />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Audio</span>
-                </button>
-                <button
-                  onClick={() => handleAttachClick('document')}
-                  className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-t border-gray-200 dark:border-gray-700"
-                >
-                  <FileText size={20} className="text-orange-500" />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Documents</span>
-                </button>
-              </div>
-            </div>
+           <AttachmentModal handleAttachClick={handleAttachClick} modalRef={modalRef} />
           )}
 
           <button

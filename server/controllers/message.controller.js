@@ -53,7 +53,7 @@ export const getMessages = tryCatchWrapper(async (req, res, next) => {
             //populate threadID and sender details
             .populate([
                 { path: "sender", select: "name" },
-                { path: "threadId", select: "content sender createdAt", populate: { path: "sender", select: "name" } }
+                { path: "threadId", select: "content sender createdAt attachments", populate: { path: "sender", select: "name" } }
             ])
             .lean()
         , MessageModel.countDocuments({ chat: chatId })
@@ -100,7 +100,7 @@ export const readMessages = tryCatchWrapper(async (req, res, next) => {
 
 export const sendAttachment = tryCatchWrapper(async (req, res, next) => {
 
-    const { chatId, threadId, content } = req.body
+    const { chatId, threadId, content, tempId } = req.body
     const files = req.files;
 
     if (!files || files.length === 0) {
@@ -150,6 +150,7 @@ export const sendAttachment = tryCatchWrapper(async (req, res, next) => {
                 size: file.size,
                 secure_url: result.secure_url, // Add this for compatibility
                 originalname: file.originalname, // Add this for compatibility
+                attachmentType: file.mimetype.startsWith('image/') ? "image" : file.mimetype.startsWith('video/') ? "video" : file.mimetype.startsWith('audio/') ? "audio" : "doc"
             });
         }
         catch (uploadError) {
@@ -180,7 +181,7 @@ export const sendAttachment = tryCatchWrapper(async (req, res, next) => {
         content: populatedMessage.content,
         attachments: populatedMessage.attachments,
         createdAt: populatedMessage.createdAt,
-        threadId: threadId ? { _id: threadId, sender: req.user._id, content } : null
+        threadId: threadId ? { _id: threadId, sender: req.user._id, content, attachments: threadId.attachments } : null
     };
 
 
@@ -202,7 +203,8 @@ export const sendAttachment = tryCatchWrapper(async (req, res, next) => {
         text: populatedMessage.content,
         attachments: populatedMessage.attachments,
         createdAt: populatedMessage.createdAt,
-        threadId: threadId ? { _id: threadId, sender: req.user._id, content } : null
+        threadId: threadId ? { _id: threadId, sender: req.user._id, content, attachments: threadId.attachments } : null,
+        tempId
     };
 
     await pub.publish('chat-message', JSON.stringify(messageData));
@@ -213,7 +215,7 @@ export const sendAttachment = tryCatchWrapper(async (req, res, next) => {
             participantId: participantId.toString(),
             chatId,
             sender: { _id: req.user._id, name: req.user.name },
-            content: populatedMessage.content || '📎 Attachment',
+            content: populatedMessage.content || populatedMessage.attachments[0].attachmentType,
             attachments: populatedMessage.attachments
         }));
     }
