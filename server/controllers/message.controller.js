@@ -22,18 +22,17 @@ export const getMessages = tryCatchWrapper(async (req, res, next) => {
         return next(new CustomError("User is not a part of this chat", 400));
     }
 
-    console.log("Here in message controller", page)
     if (pageNum === 1) {
 
 
         const redisKey = `chat:${chatId}:recent`
         const cachedMessages = await redisClient.lrange(redisKey, 0, -1)
-        // console.log("Retrived from redis",cachedMessages.length)
+
         if (cachedMessages && cachedMessages.length > 0) {
             const messages = cachedMessages.map((msg) => JSON.parse(msg)).reverse()
             const totalMsgCount = await MessageModel.countDocuments({ chat: chatId })
             const totalPages = Math.ceil(totalMsgCount / limitNum) || 1
-            // console.log("Retrived from redis", messages)
+
             return res.status(200).json({
                 success: true,
                 messages,
@@ -124,11 +123,9 @@ export const sendAttachment = tryCatchWrapper(async (req, res, next) => {
 
     const attachments = []
 
-    console.log(files)
 
     for (const file of files) {
 
-        console.log(file, "Here is the file")
         try {
             let resourceType = "auto";
             if (file.mimetype.startsWith('image/')) resourceType = 'image';
@@ -230,19 +227,35 @@ export const sendAttachment = tryCatchWrapper(async (req, res, next) => {
 })
 
 
-export const getAttachmentUrl = async (req, res) => {
+export const getAttachmentUrl = async (req, res, next) => {
     try {
-        const { messageId } = req.params;
-        const message = await MessageModel.findById(messageId);
+        const file = req.file;
 
-        if (!message) {
-            return res.status(404).json({ error: 'Message not found' });
+
+        if (!file) {
+            return next(new CustomError("No files uploaded", 400))
         }
+
+        if (!file.mimetype.startsWith('image/')) {
+            return next(new CustomError("Only image can be uploaded", 400))
+        }
+
+
+        const result = await uploadToCloudinary(file.buffer, {
+            resource_type: 'image',
+            filename: file.originalname
+        })
+
 
         res.json({
             success: true,
-            attachments: message.attachments
+            attachment: {
+                url: result.secure_url,
+                localPath: result.public_id,
+                attachmentType: 'image'
+            }
         });
+
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

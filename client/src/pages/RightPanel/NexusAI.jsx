@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Paperclip, Smile, Send } from 'lucide-react'
+import { Paperclip, Smile, Send, Image } from 'lucide-react'
 import { useUIStore } from '../../store/uiStore'
 import { JOIN_CHAT_EVENT, TOGGLE_REACTION_EVENT, NEW_MESSAGE_EVENT, TYPING, USER_ONLINE_EVENT, USER_OFFLINE_EVENT, CHECK_ONLINE_EVENT } from '../../constants/events'
 import { useAuth } from '../../store/auth'
 import { useSocketEvents } from '../../hooks/useSocketEvents'
-import { getMessages, sendMessage } from '../../services/message'
+import { getAttachmentUrl, getMessages, sendMessage } from '../../services/message'
 import { flushSync } from 'react-dom'
 import { Reply, X } from 'lucide-react'
 import moment from 'moment/moment'
@@ -16,10 +16,10 @@ import AttachmentModal from '../../components/AttachmentModal'
 const NexusAI = () => {
     const [message, setMessage] = useState('')
     const [isResponding, setIsResponding] = useState(false)
+    const [isLoading, setIsLoading] = useState(false)
     const [showAttachmentModal, setShowAttachmentModal] = useState(false)
     const [attachments, setAttachments] = useState([]);
     const [uploading, setUploading] = useState(false);
-
 
     const [messages, setMessages] = useState([])
     const [currentPage, setCurrentPage] = useState(1)
@@ -34,11 +34,73 @@ const NexusAI = () => {
     const messagesContainerRef = useRef(null)
     const scrollPositionRef = useRef(0)
     const initialLoadRef = useRef(true)
+    const modalRef = useRef(null);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView()
     }, [messages])
 
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (modalRef.current && !modalRef.current.contains(event.target)) {
+                setShowAttachmentModal(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleRemoveAttachment = (index) => {
+        // Revoke object URL to prevent memory leaks
+        if (attachments[index]?.preview) {
+            URL.revokeObjectURL(attachments[index].preview);
+        }
+        setAttachments(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleAttachClick = (fileType) => {
+        setShowAttachmentModal(false);
+        // Create a new file input with specific accept attribute
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = false;
+
+        switch (fileType) {
+            case 'image':
+                input.accept = 'image/*';
+                break;
+            case 'video':
+                input.accept = 'video/*';
+                break;
+            case 'audio':
+                input.accept = 'audio/*';
+                break;
+            case 'document':
+                input.accept = '.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx';
+                break;
+            default:
+                input.accept = '*/*';
+        }
+
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+
+            console.log(file, "FILE IS HERERE")
+
+            const newAttachment = {
+                file: file,
+                preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+                type: file.type,
+                name: file.name,
+                size: file.size
+            };
+
+            setAttachments(prev => [newAttachment]);
+
+        };
+
+        input.click();
+    };
 
 
 
@@ -48,7 +110,6 @@ const NexusAI = () => {
         setLoading(true)
         try {
             const res = await getMessages(activeChat._id, page)
-            console.log(res, "AI CHATSS")
             const newMessages = res.data.messages
                 .map(msg => ({
                     id: msg._id,
@@ -59,9 +120,11 @@ const NexusAI = () => {
                     timestamp: new Date(msg.createdAt).getTime(),
                     date: new Date(msg.createdAt).toDateString(),
                     threadId: msg.threadId || null,
-                    reactions: msg.reactions
+                    reactions: msg.reactions,
+                    attachments: msg.attachments
                 })).reverse()
-            console.log(newMessages)
+
+
             if (initial) {
                 setMessages(newMessages)
                 setTotalPages(res.data.totalPages || 1)
@@ -100,11 +163,30 @@ const NexusAI = () => {
         fetchMessages(1, true)
     }, [activeChat._id, user._id])
 
+
+
     const handleSendMessage = async () => {
         if (!message.trim()) return
 
+        setIsLoading(true)
+
+
         const msg = message.trim()
         const tempId = crypto.randomUUID();
+        let attachment = []
+
+
+        if (attachments.length > 0) {
+
+            const formData = new FormData()
+
+            formData.append('attachment', attachments[0].file);
+
+            const { data } = await getAttachmentUrl(formData)
+
+            attachment.push(data.attachment)
+
+        }
 
         //flushSync React ka function hai jo state update ko turant apply karne pe majboor karta hai.Normally React state updates ko batch karta hai. Matlab tum setState karte ho, React thoda wait karta hai, phir ek saath render karta hai. Ye performance ke liye hota hai.Lekin kabhi kabhi tumhe immediately DOM update chahiye hota hai. Tab flushSync use karte hain.
 
@@ -124,20 +206,25 @@ const NexusAI = () => {
                     date: new Date().toDateString(),
                     createdAt: new Date().toISOString(),
                     pending: true,
+                    attachments: attachment
 
                 }
             ])
 
         })
 
+        setIsLoading(false)
+
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
 
         setIsResponding(true)
 
         setMessage('')
+        setAttachments([])
+
         try {
 
-            const response = await streamResponse(msg, activeChat._id)
+            const response = await streamResponse(msg, activeChat._id, attachment[0])
 
             const reader = response.body.getReader()
             const decoder = new TextDecoder()
@@ -267,10 +354,6 @@ const NexusAI = () => {
     }, [currentPage, totalPages, loading])
 
 
-
-
-
-
     return (
         <div
             style={{
@@ -318,7 +401,6 @@ const NexusAI = () => {
                     }).toUpperCase();
 
 
-
                     return (
                         <div
                             key={item.id}
@@ -334,44 +416,37 @@ const NexusAI = () => {
                                     </span>
                                 )}
 
-                                <div className="relative">
-
-
-
-                                    {/* message bubble */}
-                                    <div
-                                        className={`py-2 pb-3 relative rounded-2xl shadow-sm ${item.isOwn
-                                            ? 'bg-blue-500 text-white rounded-tr-none'
-                                            : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-tl-none'
-                                            }  ${item?.reactions && Object.keys(item?.reactions).length > 0 ? "mb-3" : ""}`}
-                                    >
-                                        {item.threadId && (
-                                            <div className="mb-2 px-2">
-                                                <div className={`flex items-center bg-gray-100 dark:bg-gray-700/70 px-4 py-2 rounded-lg ${!item.isOwn ? 'border-l-blue-500' : 'border-l-blue-600'} border-l-4`}>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-md text-blue-500 dark:text-blue-400 truncate font-semibold">
-                                                            A
-                                                        </p>
-                                                        <p className="text-sm text-gray-900 dark:text-white truncate">A</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* <div className="px-4 flex flex-col">
-                                            <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{item.text}</p>   
-                                        </div> */}
-
-                                        <div className="px-4">
-                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                                {item.text}
-                                            </ReactMarkdown>
-                                        </div>
-
-
-
-
+                                {item?.attachments && item?.attachments?.length > 0 && (
+                                    <div className="space-x-2 flex flex-row mb-2">
+                                        {item?.attachments.map((attachment, index) => (
+                                            <img
+                                                src={attachment?.url}
+                                                alt={attachment?.fileName || 'Image'}
+                                                className="w-[30vw] rounded-lg cursor-pointer hover:opacity-90 transition "
+                                                onClick={() => window.open(attachment.url, '_blank')}
+                                                loading="lazy"
+                                            />
+                                        ))}
                                     </div>
+                                )}
+
+
+
+
+                                {/* message bubble */}
+                                <div
+                                    className={`py-2 pb-3 relative rounded-2xl shadow-sm ${item.isOwn
+                                        ? 'bg-blue-500 text-white rounded-tr-none'
+                                        : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-tl-none'
+                                        }  ${item?.reactions && Object.keys(item?.reactions).length > 0 ? "mb-3" : ""}`}
+                                >
+
+                                    <div className="px-4">
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                            {item.text}
+                                        </ReactMarkdown>
+                                    </div>
+
                                 </div>
                             </div>
                         </div>
@@ -386,15 +461,55 @@ const NexusAI = () => {
             {/* Message Input */}
             <div className={`flex-shrink-5 border-none bg-white  m-4 dark:bg-gray-800 border-t border-gray-200 rounded-b-4xl dark:border-gray-700  py-2 rounded-t-4xl`}>
 
+                {attachments.length > 0 && (
+                    <div className="px-4 mb-2">
+                        <div className="flex flex-wrap gap-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                            {attachments.map((att, index) => (
+                                // <FileAttachment att={att} index={index} handleRemoveAttachment={handleRemoveAttachment} key={index} />
+                                <div className='relative group'>
+                                    <img src={att.preview} alt={att.name} className="w-20 h-20 object-cover rounded-lg" />
+                                    <button
+                                        onClick={() => handleRemoveAttachment(index)}
+                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 
+                                                        opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer
+                                                        hover:bg-red-600 focus:outline-none"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                            ))}
+
+                        </div>
+                    </div>
+                )}
 
 
-                <div className="flex items-center gap-3 px-6">
+                <div className="flex relative items-center gap-3 px-6">
                     {showAttachmentModal && (
-                        <AttachmentModal setAttachments={setAttachments} setShowAttachmentModal={setShowAttachmentModal} />
+                        // <AttachmentModal setAttachments={setAttachments} setShowAttachmentModal={setShowAttachmentModal} />
+
+                        <div
+                            ref={modalRef}
+                            className="absolute bottom-14 left-4 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
+                        >
+                            <div className="py-2">
+                                <button
+                                    onClick={() => handleAttachClick('image')}
+                                    className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                    <Image size={20} className="text-green-500" />
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">Photos</span>
+                                </button>
+
+
+
+                            </div>
+                        </div>
                     )}
 
                     <button
-                        onClick={() => setShowAttachmentModal(!showAttachmentModal)}
+                        // onClick={() => setShowAttachmentModal(!showAttachmentModal)}
+                        onClick={() => handleAttachClick('image')}
                         className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors flex-shrink-0"
                         disabled={uploading}
                     >
@@ -414,10 +529,26 @@ const NexusAI = () => {
                     </div>
                     <button
                         onClick={handleSendMessage}
-                        disabled={!message?.trim() || isResponding}
-                        className="p-3 hover:bg-blue-500   rounded-full transition-colors flex-shrink-0"
+                        disabled={!message?.trim() || isResponding || isLoading}
+                        className={`
+                            p-3 rounded-full transition-all duration-200 flex-shrink-0 
+                            flex items-center justify-center
+                            w-12 h-12 
+                            ${!message?.trim() || isResponding || isLoading
+                                ? 'bg-blue-400 cursor-not-allowed opacity-70'
+                                : 'bg-blue-500 hover:bg-blue-600'
+                            }
+    `}
                     >
-                        <Send size={20} className="text-white" />
+                        {isLoading ? (
+                            // Loader/Spinner
+                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                        ) : isResponding ? (
+                            // Blinking Square - Fixed size
+                            <div className="h-5 w-5 bg-white animate-pulse rounded-sm flex-shrink-0"></div>
+                        ) : (
+                            <Send size={20} className="text-white flex-shrink-0" />
+                        )}
                     </button>
                 </div>
             </div>

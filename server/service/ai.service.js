@@ -26,7 +26,7 @@ const Tavily = tavily({ apiKey: process.env.TAVILY_API_KEY, });
 
 
 export const streamChat = tryCatchWrapper(async (req, res) => {
-    const { message, chatId } = req.body
+    const { message, chatId, attachment } = req.body
 
     res.setHeader("Content-Type", "text/event-stream")
     res.setHeader("Cache-Control", "no-cache")
@@ -38,16 +38,81 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
 
     let openAIMessages = []
     if (cachedMessages?.length > 0) {
-        openAIMessages = cachedMessages.map(msg => {
+
+        // openAIMessages = cachedMessages.map(msg => {
+        //     const parsed = JSON.parse(msg)
+        //     return { role: parsed.role, content: parsed.content }
+        // })
+
+        openAIMessages = cachedMessages.map((msg) => {
             const parsed = JSON.parse(msg)
-            return { role: parsed.role, content: parsed.content }
+
+            if (parsed.role === "user" && parsed?.attachment?.length) {
+                const content = [
+                    {
+                        type: "text",
+                        text: parsed.content
+                    }
+                ]
+                parsed.attachments.forEach((attachment) => {
+                    if (attachment.attachmentType === "image") {
+                        content.push({
+                            type: "image_url",
+                            image_url: {
+                                url: attachment.url
+                            }
+                        })
+                    }
+                })
+
+                return {
+                    role: parsed.role,
+                    content
+                }
+            }
+
+            return {
+                role: parsed.role,
+                content: parsed.content
+            }
+
         })
     }
 
-    openAIMessages.push({ role: "user", content: message })
+    if (attachment) {
+
+        const userContent = [
+            {
+                type: "text",
+                text: message
+            }
+        ]
+
+        // attachments?.forEach((attachment) => {
+        if (attachment.attachmentType === "image") {
+            userContent.push({
+                type: "image_url",
+                image_url: {
+                    url: attachment.url
+                }
+            })
+        }
+        // })
+
+        openAIMessages.push({
+            role: "user",
+            content: userContent
+        })
+
+    } else {
+        openAIMessages.push({
+            role: "user",
+            content: message
+        })
+    }
 
     const classifier = await client.chat.completions.create({
-        model: "gpt-4o-mini", 
+        model: "gpt-4o-mini",
         messages: [
             {
                 role: "system",
@@ -64,11 +129,17 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
         max_tokens: 50
     })
 
-    const { needsWebSearch, needsMemory, saveToMemory } = JSON.parse(
+    let { needsWebSearch, needsMemory, saveToMemory } = JSON.parse(
         classifier.choices[0].message.content
     )
 
     console.log("Classification:", { needsWebSearch, needsMemory, saveToMemory })
+
+    const hasImage = attachment && attachment.attachmentType === "image"
+
+    if (hasImage) {
+        needsWebSearch = false
+    }
 
     const [memories, searchResult] = await Promise.all([
         needsMemory
@@ -96,7 +167,7 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
     }
 
     console.log(openAIMessages, "openAIMessages")
-   
+
     try {
         const stream = await client.chat.completions.create({
             model: "gpt-5.5",
@@ -115,7 +186,7 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
 
         // Save to DB and cache
         const [savedUserMsg, savedAiMsg] = await Promise.all([
-            MessageModel.create({ sender: req.user._id, content: message, chat: chatId }),
+            MessageModel.create({ sender: req.user._id, content: message, chat: chatId, attachments: attachment ? [attachment] : [] }),
             MessageModel.create({
                 sender: new mongoose.Types.ObjectId(process.env.BOT_USER_ID),
                 content: result,
@@ -127,7 +198,7 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
         pipeline.rpush(redisKey, JSON.stringify({
             _id: savedUserMsg._id,
             sender: { _id: req.user._id, name: req.user.name },
-            chat: chatId, content: message,
+            chat: chatId, content: message, attachments: attachment ? [attachment] : [],
             createdAt: savedUserMsg.createdAt, role: "user"
         }))
         pipeline.rpush(redisKey, JSON.stringify({
