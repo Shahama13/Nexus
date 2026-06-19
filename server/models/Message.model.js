@@ -15,9 +15,12 @@ const messageSchema = new Schema({
                 localPath: String,
                 attachmentType: {
                     type: String,
-                    enum: ["image", "audio", "video", "doc"],
+                    enum: ["image", "audio", "video", "pdf"],
                     required: true
-                }
+                },
+                fileName: String,
+                fileType: String,
+                size: Number
             },
         ],
         default: [],

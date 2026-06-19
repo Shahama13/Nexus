@@ -6,12 +6,12 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET,
 })
 
-export const uploadToCloudinary = async (buffer, options = {}) => {
+export const uploadToCloudinary = async (buffer, options = {}, resource_type = "auto") => {
     return new Promise((resolve, reject) => {
         cloudinary.uploader.upload_stream(
             {
                 folder: 'chat-attachments',
-                resource_type: 'auto',
+                resource_type,
                 ...options
             },
             (error, result) => {

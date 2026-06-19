@@ -222,41 +222,4 @@ export const sendAttachment = tryCatchWrapper(async (req, res, next) => {
         message: populatedMessage
     });
 
-
-
 })
-
-
-export const getAttachmentUrl = async (req, res, next) => {
-    try {
-        const file = req.file;
-
-
-        if (!file) {
-            return next(new CustomError("No files uploaded", 400))
-        }
-
-        if (!file.mimetype.startsWith('image/')) {
-            return next(new CustomError("Only image can be uploaded", 400))
-        }
-
-
-        const result = await uploadToCloudinary(file.buffer, {
-            resource_type: 'image',
-            filename: file.originalname
-        })
-
-
-        res.json({
-            success: true,
-            attachment: {
-                url: result.secure_url,
-                localPath: result.public_id,
-                attachmentType: 'image'
-            }
-        });
-
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-};

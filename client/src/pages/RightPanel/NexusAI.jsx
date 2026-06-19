@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Paperclip, Smile, Send, Image } from 'lucide-react'
+import { Paperclip, Smile, Send, Image, FileText, FileTextIcon, ExternalLink } from 'lucide-react'
 import { useUIStore } from '../../store/uiStore'
 import { JOIN_CHAT_EVENT, TOGGLE_REACTION_EVENT, NEW_MESSAGE_EVENT, TYPING, USER_ONLINE_EVENT, USER_OFFLINE_EVENT, CHECK_ONLINE_EVENT } from '../../constants/events'
 import { useAuth } from '../../store/auth'
 import { useSocketEvents } from '../../hooks/useSocketEvents'
-import { getAttachmentUrl, getMessages, sendMessage } from '../../services/message'
+import {  getMessages, sendMessage } from '../../services/message'
 import { flushSync } from 'react-dom'
 import { Reply, X } from 'lucide-react'
 import moment from 'moment/moment'
@@ -12,6 +12,7 @@ import { streamResponse } from '../../services/ai'
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import AttachmentModal from '../../components/AttachmentModal'
+import { getAttachmentUrl } from '../../services/attachments'
 
 const NexusAI = () => {
     const [message, setMessage] = useState('')
@@ -58,7 +59,7 @@ const NexusAI = () => {
         setAttachments(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleAttachClick = (fileType) => {
+    const handleAttachmentClick = (fileType) => {
         setShowAttachmentModal(false);
         // Create a new file input with specific accept attribute
         const input = document.createElement('input');
@@ -69,17 +70,11 @@ const NexusAI = () => {
             case 'image':
                 input.accept = 'image/*';
                 break;
-            case 'video':
-                input.accept = 'video/*';
+
+            case 'pdf':
+                input.accept = '.pdf';
                 break;
-            case 'audio':
-                input.accept = 'audio/*';
-                break;
-            case 'document':
-                input.accept = '.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx';
-                break;
-            default:
-                input.accept = '*/*';
+
         }
 
         input.onchange = (e) => {
@@ -174,19 +169,26 @@ const NexusAI = () => {
         const msg = message.trim()
         const tempId = crypto.randomUUID();
         let attachment = []
+        const hasPDF = attachments.some(att => att.type === 'application/pdf');
+        const pdfFile = attachments.find(att => att.type === 'application/pdf');
 
 
-        if (attachments.length > 0) {
-
+        if (attachments.length > 0 && !hasPDF) {
             const formData = new FormData()
-
             formData.append('attachment', attachments[0].file);
-
             const { data } = await getAttachmentUrl(formData)
-
+            console.log("Attachment url", data)
             attachment.push(data.attachment)
-
         }
+
+        if (attachments.length > 0 && hasPDF) {
+            const formData = new FormData()
+            formData.append('attachment', attachments[0].file);
+            const { data } = await getAttachmentUrl(formData)
+            console.log("Attachment url", data)
+            attachment.push(data.attachment)
+        }
+
 
         //flushSync React ka function hai jo state update ko turant apply karne pe majboor karta hai.Normally React state updates ko batch karta hai. Matlab tum setState karte ho, React thoda wait karta hai, phir ek saath render karta hai. Ye performance ke liye hota hai.Lekin kabhi kabhi tumhe immediately DOM update chahiye hota hai. Tab flushSync use karte hain.
 
@@ -224,7 +226,22 @@ const NexusAI = () => {
 
         try {
 
-            const response = await streamResponse(msg, activeChat._id, attachment[0])
+            // let response;
+            const formData = new FormData();
+            formData.append('message', msg);
+            formData.append('chatId', activeChat._id);
+
+            // If there's a PDF, send it as file
+            if (pdfFile) {
+                formData.append('pdfFile', pdfFile.file);
+            }
+
+            // If there's an image attachment URL, send it
+            if (attachment.length > 0) {
+                formData.append('attachment', JSON.stringify(attachment[0]));
+            }
+
+            const response = await streamResponse(formData)
 
             const reader = response.body.getReader()
             const decoder = new TextDecoder()
@@ -418,15 +435,39 @@ const NexusAI = () => {
 
                                 {item?.attachments && item?.attachments?.length > 0 && (
                                     <div className="space-x-2 flex flex-row mb-2">
-                                        {item?.attachments.map((attachment, index) => (
-                                            <img
-                                                src={attachment?.url}
-                                                alt={attachment?.fileName || 'Image'}
-                                                className="w-[30vw] rounded-lg cursor-pointer hover:opacity-90 transition "
-                                                onClick={() => window.open(attachment.url, '_blank')}
-                                                loading="lazy"
-                                            />
-                                        ))}
+                                        {item?.attachments.map((attachment, index) => {
+                                            if (attachment?.attachmentType === 'image') {
+                                                return (<img
+                                                    src={attachment?.url}
+                                                    alt={attachment?.fileName || 'Image'}
+                                                    className="w-[30vw] rounded-lg cursor-pointer hover:opacity-90 transition "
+                                                    onClick={() => window.open(attachment.url, '_blank')}
+                                                    loading="lazy"
+                                                />)
+                                            } else if (attachment?.attachmentType === 'pdf') {
+                                                return (
+                                                    <div
+                                                        key={index}
+                                                        className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                                                        onClick={() => window.open(attachment.url, '_blank')}
+                                                    >
+                                                        <div className="flex-shrink-0">
+                                                            <FileText size={24} className="text-red-500" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                                                {attachment.fileName || 'PDF'}
+                                                            </p>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                                {attachment.fileType || 'PDF'} • {(attachment.size / 1024).toFixed(1)} KB
+                                                            </p>
+                                                        </div>
+                                                        <ExternalLink size={16} className="text-gray-400 flex-shrink-0" />
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        })}
                                     </div>
                                 )}
 
@@ -467,7 +508,26 @@ const NexusAI = () => {
                             {attachments.map((att, index) => (
                                 // <FileAttachment att={att} index={index} handleRemoveAttachment={handleRemoveAttachment} key={index} />
                                 <div className='relative group'>
-                                    <img src={att.preview} alt={att.name} className="w-20 h-20 object-cover rounded-lg" />
+                                    {att.type.startsWith("image/") ? <img src={att.preview} alt={att.name} className="w-20 h-20 object-cover rounded-lg" /> :
+
+
+                                        <div
+                                            key={index}
+                                            className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                                        >
+                                            <div className="flex-shrink-0">
+                                                <FileText size={24} className="text-red-500" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                                    {att.name || 'PDF'}
+                                                </p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                    {att.type || 'PDF'} • {(att.size / 1024).toFixed(1)} KB
+                                                </p>
+                                            </div>
+                                        </div>
+                                    }
                                     <button
                                         onClick={() => handleRemoveAttachment(index)}
                                         className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 
@@ -492,24 +552,30 @@ const NexusAI = () => {
                             ref={modalRef}
                             className="absolute bottom-14 left-4 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
                         >
-                            <div className="py-2">
+                            
                                 <button
-                                    onClick={() => handleAttachClick('image')}
-                                    className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    onClick={() => handleAttachmentClick('image')}
+                                    className="w-full flex items-center gap-3 px-4 py-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                 >
                                     <Image size={20} className="text-green-500" />
-                                    <span className="text-sm text-gray-700 dark:text-gray-300">Photos</span>
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">Image</span>
                                 </button>
+                           
 
-
-
-                            </div>
+                           
+                                <button
+                                    onClick={() => handleAttachmentClick('pdf')}
+                                    className="w-full flex items-center gap-3 px-4 py-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                    <FileText size={20} className="text-red-500" />
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">Document</span>
+                                </button>
+                           
                         </div>
                     )}
 
                     <button
-                        // onClick={() => setShowAttachmentModal(!showAttachmentModal)}
-                        onClick={() => handleAttachClick('image')}
+                        onClick={() => setShowAttachmentModal(!showAttachmentModal)}
                         className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors flex-shrink-0"
                         disabled={uploading}
                     >
@@ -538,7 +604,7 @@ const NexusAI = () => {
                                 ? 'bg-blue-400 cursor-not-allowed opacity-70'
                                 : 'bg-blue-500 hover:bg-blue-600'
                             }
-    `}
+                        `}
                     >
                         {isLoading ? (
                             // Loader/Spinner

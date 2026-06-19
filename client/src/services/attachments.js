@@ -9,7 +9,8 @@ export const uploadAttachments = async (formData) => {
   return response;
 };
 
-export const getAttachmentUrl = async (messageId) => {
-  const response = await api.get(`/messages/attachment/${messageId}`);
-  return response;
-};
+export const getAttachmentUrl = (formdata) => api.post("/attachment", formdata, {
+    headers: {
+        'Content-Type': 'multipart/form-data'
+    }
+})
