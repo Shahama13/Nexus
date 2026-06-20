@@ -1,198 +1,13 @@
 import mongoose from "mongoose";
-import { OpenAI } from "openai";
 import MessageModel from "../models/Message.model.js";
-import { tryCatchWrapper } from "../middlewares/error.middleware.js";
+import { CustomError, tryCatchWrapper } from "../middlewares/error.middleware.js";
 import { redisClient } from "../config/redis.config.js";
-import { QdrantClient } from "@qdrant/js-client-rest";
-import { MemoryClient } from "mem0ai";
-import { tavily } from "@tavily/core";
 import { extractText } from "unpdf";
 import { uploadToCloudinary } from "../config/cloudinary.config.js";
 import { v4 as uuidv4 } from 'uuid';
-
-
-const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
-
-const qdrant = new QdrantClient({
-    url: process.env.QDRANT_ENDPOINT,
-    apiKey: process.env.QDRANT_CLOUD_API_KEY,
-});
-
-const mem0 = new MemoryClient({
-    apiKey: process.env.MEM0_API_KEY,
-});
-
-const Tavily = tavily({ apiKey: process.env.TAVILY_API_KEY, });
-
-function getUserCollection(userId) {
-    return `pdf_${userId}`
-}
-
-async function ensureCollectionExists(userId) {
-    const collectionName = getUserCollection(userId)
-
-    const collections = await qdrant.getCollections()
-    const exists = collections.collections.find(c => c.name === collectionName)
-
-    if (!exists) {
-        await qdrant.createCollection(collectionName, {
-            vectors: { size: 1536, distance: "Cosine" }
-        });
-        console.log("Collection created:", collectionName)
-    }
-
-    await qdrant.createPayloadIndex(collectionName, {
-        field_name: "chat_id",
-        field_schema: "keyword"
-    }).catch(err => console.log("Index already exists, skipping:", err.data?.status?.error));
-
-    return collectionName
-}
-
-function splitTextsIntoChunks(text, chunkSize = 1000, overlap = 200) {
-    const chunks = []
-    let start = 0
-
-    while (start < text.length) {
-        let end = Math.min(chunkSize + start, text.length)
-        chunks.push(text.slice(start, end))
-        start += chunkSize - overlap
-    }
-
-    return chunks
-}
-
-async function getEmbeddings(text) {
-    const response = await client.embeddings.create({
-        model: "text-embedding-ada-002",
-        input: text
-    })
-    return response.data[0].embedding
-}
-
-
-async function processAndStorePdf(pdfBuffer, userId, chatId) {
-    try {
-        const buffer = new Uint8Array(pdfBuffer)
-
-        const { text, totalPages } = await extractText(buffer, {
-            mergePages: true
-        })
-
-        // break down in chunks
-        const chunks = splitTextsIntoChunks(text)
-
-        const collectionName = await ensureCollectionExists(userId)
-
-        const points = []
-
-        for (let i = 0; i < chunks.length; i++) {
-            // create embeddings of chunks
-            const embedding = await getEmbeddings(chunks[i])
-            points.push({
-                id: uuidv4(),
-                vector: embedding,
-                payload: {
-                    chat_id: chatId,
-                    text: chunks[i],
-                    chunk_index: i,
-                    total_chunks: chunks.length,
-                    uploaded_at: new Date().toISOString(),
-
-                }
-            })
-        }
-
-        // Delete old documents for this chat cause we only want context from the lastest uploaded pdf
-        await qdrant.delete(collectionName, {
-            filter: {
-                must: [
-                    {
-                        key: "chat_id",
-                        match: {
-                            value: chatId
-                        }
-                    }
-                ]
-            }
-        }).catch(err => {
-            // If delete fails (e.g., no index yet), just log and continue
-            console.log("Delete error (may be normal):", err.message);
-        });
-
-        // store embeddings
-        if (points.length > 0) {
-            await qdrant.upsert(collectionName, { points })
-        }
-
-        return {
-            success: true,
-            chunks: chunks.length,
-            totalPages,
-            textLength: text.length
-        }
-    } catch (error) {
-        console.error("PDF processing error:", error.data?.status?.error || error.message);
-
-        return { success: false, error: error.message };
-    }
-}
-
-async function searchPDFContext(query, userId, chatId) {
-    try {
-        const collectionName = getUserCollection(userId)
-
-        const collections = await qdrant.getCollections()
-        const exists = collections.collections.find(c => c.name === collectionName)
-
-        if (!exists) {
-            return []
-        }
-
-        const queryEmbedding = await getEmbeddings(query)
-
-        const searchResult = await qdrant.search(collectionName, {
-            vector: queryEmbedding,
-            limit: 5,
-            filter: {
-                must: [
-                    { key: "chat_id", match: { value: chatId } }
-                ]
-            }
-
-        })
-
-        console.log(searchResult, "this is your search result ")
-        if (searchResult.length > 0) {
-            return searchResult.map((point) => ({
-                text: point.payload.text,
-                score: point.score
-            }))
-        }
-
-        return [];
-    } catch (error) {
-        console.error("PDF search error:", error.data?.status?.error || error.message);
-        // return [];
-        return [];
-    }
-}
-
-async function createChatIdIndex(userId) {
-    try {
-        const collectionName = getUserCollection(userId);
-        await qdrant.createIndex(collectionName, {
-            field_name: "chat_id",
-            field_type: "keyword"
-        });
-        console.log(`Created index for chat_id in collection: ${collectionName}`);
-    } catch (error) {
-        // Index might already exist
-        console.log("Index for chat_id may already exist:", error.message);
-    }
-}
+import { processAndStorePdf, searchPDFContext } from "./pdf.service.js";
+import { client, qdrant, mem0, Tavily } from "../config/ai.config.js";
+import ChatModel from "../models/Chat.model.js";
 
 
 export const streamChat = tryCatchWrapper(async (req, res) => {
@@ -261,9 +76,6 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
 
     if (pdfFile) {
         hasPDF = true
-
-
-
         const result = await processAndStorePdf(pdfFile.buffer, userId, chatId)
         if (result.success) {
             pdfProcessed = true
@@ -439,6 +251,8 @@ Reply with JSON only:
             chat: chatId, content: result,
             createdAt: savedAiMsg.createdAt, role: "assistant"
         }))
+
+        // tells which indexes to keeep
         pipeline.ltrim(redisKey, -30, -1)
         await pipeline.exec()
 
@@ -456,6 +270,159 @@ Reply with JSON only:
         console.error(error)
         res.status(500).end()
     }
+})
+
+export const generateResponseOnMessageContext = tryCatchWrapper(async (req, res, next) => {
+    const { chatId } = req.params
+    const { userQuery } = req.body
+
+    if(!userQuery) return
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const chat = await ChatModel.findById(chatId)
+
+    if (!chat) {
+        return next(new CustomError("Chat not found", 404));
+    }
+
+    const isParticipant = chat.participants.find((p) => p.toString() === req.user._id.toString())
+
+    if (!isParticipant) return next(new CustomError("User not part of chat", 403))
+
+    // get recent chat context try getting from redis if not available go to db
+
+    const redisKey = `chat:${chatId}:recent`;
+
+    // build a small context for now
+    const cachedMessages = await redisClient.lrange(redisKey, -5, -1)
+    let context = `Your name is Nexus.
+You are helping participants in a conversation . u just answer what is asked without saying who said what.
+Conversation:
+`;
+
+    if (cachedMessages.length > 0) {
+
+        const parsedMessages = cachedMessages.map(msg => JSON.parse(msg));
+
+        context += parsedMessages
+            .map(message => `${message.sender.name}: ${message.content}`)
+            .join("\n");
+
+
+    }
+    else {
+        const messagesFromDatabase = await MessageModel
+            .find({ chat: chatId })
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .populate({ path: "sender", select: "name" })
+
+        context += messagesFromDatabase.map((message) => `${message.sender.name}: ${message.content}`).join("\n")
+    }
+
+    context += "\n\n"
+    // run classifier for memory search and websearch
+
+
+    const classifier = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+            {
+                role: "system",
+                content: `This is a conversation between people.
+Reply with JSON only:
+
+{
+  "needsWebSearch": boolean,
+  "needsMemory": boolean,
+  "saveToMemory": boolean,
+}
+
+- needsWebSearch: true if the query needs current information
+- needsMemory: true if the query references user history
+- saveToMemory: true if the user shares personal information
+- All false for casual chat, greetings, coding help`
+            },
+            { role: "user", content: userQuery }
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 50
+    })
+
+    let { needsWebSearch, needsMemory, saveToMemory } = JSON.parse(
+        classifier.choices[0].message.content
+    )
+
+    const [webSearchResults, memories] = await Promise.all([
+        needsWebSearch ? await Tavily.search(userQuery, { max_results: 3 }) : Promise.resolve(null),
+        needsMemory ? mem0.search(userQuery, { filters: { user_id: req.user._id.toString() } }) : Promise.resolve(null)
+    ])
+
+
+
+    if (webSearchResults?.results?.length > 0) {
+        const webContext = webSearchResults.results.map(r => r.content).join("\n")
+        context += `Current web search results:\n${webContext}\nUse this if relevant.`
+    }
+
+    if (memories?.results?.length > 0) {
+        const memoryContext = memories.results.map(m => `- ${m.memory}`).join("\n")
+        context += `Relevant facts about the user who called for your answer:\n${memoryContext}\n\n`;
+    }
+
+    const stream = await client.chat.completions.create({
+        model: "gpt-5.5",
+        messages: [
+            {
+                role: "system",
+                content: context
+            },
+            {
+                role: "user",
+                content: userQuery
+            }
+        ],
+        stream: true
+    })
+
+    let result = ""
+
+    for await (const chunk of stream) {
+        const token = chunk.choices[0]?.delta?.content
+        if (token) {
+            result += token
+            res.write(`data: ${JSON.stringify({ token })}\n\n`)
+        }
+    }
+
+
+    // const savedAiMsg = await MessageModel.create({
+    //     sender: new mongoose.Types.ObjectId(process.env.BOT_USER_ID),
+    //     content: result,
+    //     chat: chatId,
+    // })
+
+    // await redisClient.rpush(redisKey, JSON.stringify({
+    //     _id: savedAiMsg._id,
+    //     sender: { _id: process.env.BOT_USER_ID, name: "Nexus AI" },
+    //     chat: chatId, content: result,
+    //     createdAt: savedAiMsg.createdAt, role: "assistant"
+    // }))
+
+    // await redisClient.ltrim(redisKey, -30, -1)
+
+    if (saveToMemory) {
+        mem0.add([{ role: "user", content: userQuery }], {
+            user_id: req.user._id.toString()
+        }).catch(err => console.error("MEM0 ADD ERROR:", err))
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`)
+    res.end()
 })
 
 

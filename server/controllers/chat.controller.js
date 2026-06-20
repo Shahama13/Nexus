@@ -4,7 +4,7 @@ import { CustomError, tryCatchWrapper } from "../middlewares/error.middleware.js
 import Chat from "../models/Chat.model.js";
 import MessageModel from "../models/Message.model.js";
 import UserModel from "../models/User.model.js";
-import { emitEvent } from "../socket/index.js";
+import { emitEvent } from "../socket/server.socket.js";
 import ChatModel from "../models/Chat.model.js";
 
 const chatCommonAggregation = () => {

@@ -253,7 +253,7 @@ export const initSocket = io => {
 
       socket.on(NEW_MESSAGE_EVENT, async msg => {
         try {
-          const { chatId, content, tempId, threadId } = msg;
+          const { chatId, content, tempId, threadId, isAutomatedReply = false } = msg;
 
           const chat = await ChatModel.findById(chatId);
           if (!chat) return;
@@ -261,20 +261,23 @@ export const initSocket = io => {
             id => id.equals(user._id)
           );
 
-          if (!isParticipant) return;
+          if (!isParticipant && !isAutomatedReply) return;
           const savedMessage = await MessageModel.create({
-            sender: user._id,
+            sender: isAutomatedReply ? process.env.BOT_USER_ID : user._id,
             content,
             chat: chatId,
             threadId: threadId ? new mongoose.Types.ObjectId(threadId.id) : null
           });
 
+          const sender =
+          {
+            _id: isAutomatedReply ? process.env.BOT_USER_ID : user._id,
+            name: isAutomatedReply ? "Nexus AI" : user.name
+          }
+
           const cacheMessage = {
             _id: savedMessage._id,
-            sender: {
-              _id: user._id,
-              name: user.name
-            },
+            sender,
             chat: chatId,
             content: savedMessage.content,
             createdAt: savedMessage.createdAt,
@@ -316,7 +319,7 @@ export const initSocket = io => {
             JSON.stringify({
               id: savedMessage._id,
               chatId,
-              sender: { _id: user._id, name: user.name },
+              sender ,
               text: savedMessage.content,
               createdAt: savedMessage.createdAt,
               threadId: threadId ? {
@@ -342,7 +345,7 @@ export const initSocket = io => {
             // if (participantId.toString() !== user._id.toString()) {
             await pub.publish("new-message-alert", JSON.stringify({
               participantId: participantId.toString(),
-              chatId, sender: user, content
+              chatId, sender, content
             }))
             // io.to(participantId.toString()).emit(NEW_MESSAGE_ALERT, { chatId, sender: user, content });
             // }
