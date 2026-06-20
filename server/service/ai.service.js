@@ -1,12 +1,13 @@
 import mongoose from "mongoose";
 import MessageModel from "../models/Message.model.js";
-import { tryCatchWrapper } from "../middlewares/error.middleware.js";
+import { CustomError, tryCatchWrapper } from "../middlewares/error.middleware.js";
 import { redisClient } from "../config/redis.config.js";
 import { extractText } from "unpdf";
 import { uploadToCloudinary } from "../config/cloudinary.config.js";
 import { v4 as uuidv4 } from 'uuid';
 import { processAndStorePdf, searchPDFContext } from "./pdf.service.js";
 import { client, qdrant, mem0, Tavily } from "../config/ai.config.js";
+import ChatModel from "../models/Chat.model.js";
 
 
 export const streamChat = tryCatchWrapper(async (req, res) => {
@@ -75,9 +76,6 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
 
     if (pdfFile) {
         hasPDF = true
-
-
-
         const result = await processAndStorePdf(pdfFile.buffer, userId, chatId)
         if (result.success) {
             pdfProcessed = true
@@ -253,6 +251,8 @@ Reply with JSON only:
             chat: chatId, content: result,
             createdAt: savedAiMsg.createdAt, role: "assistant"
         }))
+
+        // tells which indexes to keeep
         pipeline.ltrim(redisKey, -30, -1)
         await pipeline.exec()
 
@@ -270,6 +270,159 @@ Reply with JSON only:
         console.error(error)
         res.status(500).end()
     }
+})
+
+export const generateResponseOnMessageContext = tryCatchWrapper(async (req, res, next) => {
+    const { chatId } = req.params
+    const { userQuery } = req.body
+
+    if(!userQuery) return
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const chat = await ChatModel.findById(chatId)
+
+    if (!chat) {
+        return next(new CustomError("Chat not found", 404));
+    }
+
+    const isParticipant = chat.participants.find((p) => p.toString() === req.user._id.toString())
+
+    if (!isParticipant) return next(new CustomError("User not part of chat", 403))
+
+    // get recent chat context try getting from redis if not available go to db
+
+    const redisKey = `chat:${chatId}:recent`;
+
+    // build a small context for now
+    const cachedMessages = await redisClient.lrange(redisKey, -5, -1)
+    let context = `Your name is Nexus.
+You are helping participants in a conversation . u just answer what is asked without saying who said what.
+Conversation:
+`;
+
+    if (cachedMessages.length > 0) {
+
+        const parsedMessages = cachedMessages.map(msg => JSON.parse(msg));
+
+        context += parsedMessages
+            .map(message => `${message.sender.name}: ${message.content}`)
+            .join("\n");
+
+
+    }
+    else {
+        const messagesFromDatabase = await MessageModel
+            .find({ chat: chatId })
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .populate({ path: "sender", select: "name" })
+
+        context += messagesFromDatabase.map((message) => `${message.sender.name}: ${message.content}`).join("\n")
+    }
+
+    context += "\n\n"
+    // run classifier for memory search and websearch
+
+
+    const classifier = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+            {
+                role: "system",
+                content: `This is a conversation between people.
+Reply with JSON only:
+
+{
+  "needsWebSearch": boolean,
+  "needsMemory": boolean,
+  "saveToMemory": boolean,
+}
+
+- needsWebSearch: true if the query needs current information
+- needsMemory: true if the query references user history
+- saveToMemory: true if the user shares personal information
+- All false for casual chat, greetings, coding help`
+            },
+            { role: "user", content: userQuery }
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 50
+    })
+
+    let { needsWebSearch, needsMemory, saveToMemory } = JSON.parse(
+        classifier.choices[0].message.content
+    )
+
+    const [webSearchResults, memories] = await Promise.all([
+        needsWebSearch ? await Tavily.search(userQuery, { max_results: 3 }) : Promise.resolve(null),
+        needsMemory ? mem0.search(userQuery, { filters: { user_id: req.user._id.toString() } }) : Promise.resolve(null)
+    ])
+
+
+
+    if (webSearchResults?.results?.length > 0) {
+        const webContext = webSearchResults.results.map(r => r.content).join("\n")
+        context += `Current web search results:\n${webContext}\nUse this if relevant.`
+    }
+
+    if (memories?.results?.length > 0) {
+        const memoryContext = memories.results.map(m => `- ${m.memory}`).join("\n")
+        context += `Relevant facts about the user who called for your answer:\n${memoryContext}\n\n`;
+    }
+
+    const stream = await client.chat.completions.create({
+        model: "gpt-5.5",
+        messages: [
+            {
+                role: "system",
+                content: context
+            },
+            {
+                role: "user",
+                content: userQuery
+            }
+        ],
+        stream: true
+    })
+
+    let result = ""
+
+    for await (const chunk of stream) {
+        const token = chunk.choices[0]?.delta?.content
+        if (token) {
+            result += token
+            res.write(`data: ${JSON.stringify({ token })}\n\n`)
+        }
+    }
+
+
+    // const savedAiMsg = await MessageModel.create({
+    //     sender: new mongoose.Types.ObjectId(process.env.BOT_USER_ID),
+    //     content: result,
+    //     chat: chatId,
+    // })
+
+    // await redisClient.rpush(redisKey, JSON.stringify({
+    //     _id: savedAiMsg._id,
+    //     sender: { _id: process.env.BOT_USER_ID, name: "Nexus AI" },
+    //     chat: chatId, content: result,
+    //     createdAt: savedAiMsg.createdAt, role: "assistant"
+    // }))
+
+    // await redisClient.ltrim(redisKey, -30, -1)
+
+    if (saveToMemory) {
+        mem0.add([{ role: "user", content: userQuery }], {
+            user_id: req.user._id.toString()
+        }).catch(err => console.error("MEM0 ADD ERROR:", err))
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`)
+    res.end()
 })
 
 

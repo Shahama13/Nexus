@@ -7,7 +7,6 @@ const messageSchema = new Schema({
     sender: { type: Types.ObjectId, ref: 'User', required: true },
     chat: { type: Types.ObjectId, ref: 'Chat', required: true },
     content: { type: String },
-    readBy: [{ type: Types.ObjectId, ref: 'User' }],
     attachments: {
         type: [
             {

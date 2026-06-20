@@ -4,7 +4,7 @@ import { useUIStore } from '../../store/uiStore'
 import { JOIN_CHAT_EVENT, TOGGLE_REACTION_EVENT, NEW_MESSAGE_EVENT, TYPING, USER_ONLINE_EVENT, USER_OFFLINE_EVENT, CHECK_ONLINE_EVENT } from '../../constants/events'
 import { useAuth } from '../../store/auth'
 import { useSocketEvents } from '../../hooks/useSocketEvents'
-import {  getMessages, sendMessage } from '../../services/message'
+import { getMessages, sendMessage } from '../../services/message'
 import { flushSync } from 'react-dom'
 import { Reply, X } from 'lucide-react'
 import moment from 'moment/moment'
@@ -438,6 +438,7 @@ const NexusAI = () => {
                                         {item?.attachments.map((attachment, index) => {
                                             if (attachment?.attachmentType === 'image') {
                                                 return (<img
+                                                    key={index}
                                                     src={attachment?.url}
                                                     alt={attachment?.fileName || 'Image'}
                                                     className="w-[30vw] rounded-lg cursor-pointer hover:opacity-90 transition "
@@ -552,25 +553,25 @@ const NexusAI = () => {
                             ref={modalRef}
                             className="absolute bottom-14 left-4 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
                         >
-                            
-                                <button
-                                    onClick={() => handleAttachmentClick('image')}
-                                    className="w-full flex items-center gap-3 px-4 py-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                >
-                                    <Image size={20} className="text-green-500" />
-                                    <span className="text-sm text-gray-700 dark:text-gray-300">Image</span>
-                                </button>
-                           
 
-                           
-                                <button
-                                    onClick={() => handleAttachmentClick('pdf')}
-                                    className="w-full flex items-center gap-3 px-4 py-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                >
-                                    <FileText size={20} className="text-red-500" />
-                                    <span className="text-sm text-gray-700 dark:text-gray-300">Document</span>
-                                </button>
-                           
+                            <button
+                                onClick={() => handleAttachmentClick('image')}
+                                className="w-full flex items-center gap-3 px-4 py-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                <Image size={20} className="text-green-500" />
+                                <span className="text-sm text-gray-700 dark:text-gray-300">Image</span>
+                            </button>
+
+
+
+                            <button
+                                onClick={() => handleAttachmentClick('pdf')}
+                                className="w-full flex items-center gap-3 px-4 py-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                <FileText size={20} className="text-red-500" />
+                                <span className="text-sm text-gray-700 dark:text-gray-300">Document</span>
+                            </button>
+
                         </div>
                     )}
 

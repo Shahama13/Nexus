@@ -7,7 +7,7 @@ import http from "http"
 import "./config/passport.config.js"
 import connectDB from './config/connectDB.js'
 import app from './app.js'
-import { initSocket } from './socket/index.js'
+import { initSocket } from './socket/server.socket.js'
 
 const server = http.createServer(app)
 const io = new Server(server, {

@@ -14,6 +14,9 @@ import FileAttachment from '../../components/FileAttachment'
 import FilePreview from '../../components/FilePreview.jsx'
 import AttachmentModal from '../../components/AttachmentModal'
 import { uploadAttachments } from '../../services/attachments'
+import { askAi } from '../../services/ai.js'
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const ChatHistory = () => {
   const [message, setMessage] = useState('')
@@ -35,9 +38,10 @@ const ChatHistory = () => {
 
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [nexusMode, setNexusMode] = useState(false)
   const fileInputRef = useRef(null);
-  
- 
+
+
 
 
   const handleRemoveAttachment = (index) => {
@@ -125,6 +129,12 @@ const ChatHistory = () => {
     const msg = message.trim()
     const tempId = crypto.randomUUID();
 
+    const isAskingNexus = nexusMode
+    const nexusQuery = nexusMode ? msg : null
+    const displayMsg = isAskingNexus ? `@nexus ${msg}` : msg  // add this
+
+
+
     if (attachments.length > 0) {
       setUploading(true);
       try {
@@ -171,7 +181,7 @@ const ChatHistory = () => {
             id: tempId,
             chatId: activeChat._id,
             sender: { name: user.name, _id: user._id },
-            text: msg,
+            text: displayMsg,  // <-- here
             isOwn: true,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase(),
             timestamp: Date.now(),
@@ -188,14 +198,97 @@ const ChatHistory = () => {
       })
 
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+
       setMessage('')
-      console.log(currentReply, "currentReply")
+      setNexusMode(false)
+
       socket.emit(NEW_MESSAGE_EVENT, {
         chatId: activeChat._id,
-        content: msg,
+        content: displayMsg,  
         tempId,
         threadId: currentReply ? currentReply : null
       })
+
+
+      if (isAskingNexus) {
+        console.log("You are asking nexus", nexusQuery)
+        const response = await askAi(nexusQuery, activeChat?._id)
+
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+
+        let result = ""
+        const aiTempId = crypto.randomUUID();
+
+        while (true) {
+          const { done, value } = await reader.read()
+          console.log({ done, value })
+
+          if (done) break
+
+          const chunk = decoder.decode(value)
+          console.log("RAW CHUNK:", chunk)
+          const lines = chunk.split("\n")
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = JSON.parse(line.slice(6))
+
+              if (data.token) {
+
+
+                result += data.token
+
+                console.log(result)
+
+                setMessages((prev) => {
+                  const existingText = prev.find(p => p.id === aiTempId)
+
+                  if (existingText) {
+                    return prev.map((p) =>
+                      p.id === aiTempId
+                        ? {
+                          ...p,
+                          text: result,
+                        }
+                        : p
+                    )
+                  }
+
+                  return [
+                    ...prev,
+                    {
+                      id: aiTempId,
+                      chatId: activeChat._id,
+                      sender: { name: "Nexus AI" },
+                      createdAt: new Date().toISOString(),
+                      text: result,
+                      isOwn: false,
+                    }
+                  ]
+                })
+
+              }
+
+              if (data.done) {
+                console.log("Stream finished")
+
+                socket.emit(NEW_MESSAGE_EVENT, {
+                  chatId: activeChat._id,
+                  content: result,
+                  tempId: aiTempId,
+                  isAutomatedReply: true
+                })
+              }
+            }
+          }
+        }
+
+      }
+
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+
+      console.log(currentReply, "currentReply")
 
       setCurrentReply(null)
 
@@ -308,8 +401,17 @@ const ChatHistory = () => {
   }, [currentPage, totalPages, loading])
 
   const handleTyping = (e) => {
-    const newValue = e.target.value
-    setMessage(newValue)
+    const val = e.target.value
+
+    if (nexusMode) {
+      setMessage(val)
+    } else if (val.toLowerCase().startsWith('@nexus')) {
+      setNexusMode(true)
+      setMessage(val.slice(6).trimStart()) // strip @nexus
+    } else {
+      setMessage(val)
+    }
+
     if (!typingRef.current) {
       typingRef.current = true
       socket.emit(TYPING, {
@@ -326,7 +428,7 @@ const ChatHistory = () => {
         chatId: activeChat._id,
         typing: false
       })
-    }, 2000)
+    }, 100)
   }
 
   const handleReply = (item) => {
@@ -437,6 +539,10 @@ const ChatHistory = () => {
 
           const isMenuOpen = showMenu === item.id;
           const isQuickOpen = showEmojiPicker === item.id;
+          const isNexusAi = item.sender.name === "Nexus AI"
+
+          const startsWithNexus = item.text.toLowerCase().startsWith("@nexus")
+          const actualMessage = startsWithNexus ? item.text.slice(7) : item.text
 
           return (
             <div
@@ -452,9 +558,9 @@ const ChatHistory = () => {
               )}
 
               <div className={`flex flex-col ${item.isOwn ? 'items-end' : 'items-start'} max-w-3xl`}>
-                {!item.isOwn && activeChat?.isGroupChat && (
-                  <span className="text-xs text-gray-500 dark:text-gray-400 mb-1 px-1">
-                    {item.sender?.name}
+                {((!item.isOwn && activeChat?.isGroupChat) || isNexusAi) && (
+                  <span className="text-xs text-blue-500 dark:text-blue-400 mb-1 px-1">
+                    {isNexusAi && "🤖"} {item.sender?.name}
                   </span>
                 )}
 
@@ -539,7 +645,11 @@ const ChatHistory = () => {
 
                     {item.text && (
                       <div className="px-4 flex flex-col">
-                        <p className="text-sm leading-relaxed break-words">{item.text}</p>
+                        {isNexusAi ? <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {actualMessage}
+                        </ReactMarkdown> :
+                          <p className="text-sm leading-relaxed break-words"><span className={`${!item.isOwn ? 'text-blue-500' : 'text-white'} font-bold`} >{startsWithNexus && "@Nexus "}</span>{actualMessage}</p>
+                        }
                         <span className={`self-end text-xs mt-1 px-1 ${item.isOwn ? 'text-gray-100' : 'text-gray-400 dark:text-gray-300'}`}>
                           {time}
                         </span>
@@ -575,9 +685,10 @@ const ChatHistory = () => {
         })}
 
         {typingUsers && (
+
+
           <div className="flex justify-start items-center gap-3">
-            <div className="w-10 h-10"></div>
-            <div className="px-4 py-2 rounded-2xl shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-bl-sm">
+            <div className="px-4 py-2 rounded-2xl shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-tl-sm">
               <div className="flex gap-1">
                 <span className="w-2 h-2 bg-gray-500 dark:bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                 <span className="w-2 h-2 bg-gray-500 dark:bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
@@ -631,7 +742,7 @@ const ChatHistory = () => {
         <div className="flex relative items-center gap-3 px-4">
           {/* Attachment Modal */}
           {showAttachmentModal && (
-           <AttachmentModal setAttachments={setAttachments} setShowAttachmentModal={setShowAttachmentModal}/>
+            <AttachmentModal setAttachments={setAttachments} setShowAttachmentModal={setShowAttachmentModal} />
           )}
 
           <button
@@ -643,15 +754,32 @@ const ChatHistory = () => {
           </button>
 
           <div className="flex-1 relative">
+            {nexusMode && (
+              <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full text-sm font-medium">
+                <span>@nexus</span>
+                <button
+                  onClick={() => { setNexusMode(false); setMessage('') }}
+                  className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
             <input
               type="text"
-              placeholder={uploading ? "Uploading..." : "Type a message..."}
+              placeholder={nexusMode ? "Ask Nexus AI..." : "Type a message.. (use @Nexus to ask AI)"}
               value={message}
               onChange={handleTyping}
               onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
               disabled={uploading}
-              className="w-full px-4 py-3 outline-none bg-inherit text-gray-900 dark:text-white rounded-full focus:outline-none focus:ring-0 "
-
+              className={`w-full px-4 py-3 outline-none bg-inherit rounded-full focus:outline-none focus:ring-0 
+      ${nexusMode
+                  ? 'pl-24 text-gray-900 dark:text-white'
+                  : 'text-gray-900 dark:text-white'
+                }`}
+              style={{
+                paddingLeft: nexusMode ? '100px' : '16px'
+              }}
             />
           </div>
 
