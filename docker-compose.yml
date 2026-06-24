@@ -6,13 +6,17 @@ services:
      - "5173:5173"
     depends_on:
      - server
+    env_file:
+     - ./client/.env
+    stdin_open: true
+    tty: true
 
   server:
     build: ./server
     ports:
      - "3000:3000"
     env_file:
-      - .env
+      - ./server/.env
 
   # redis:
   #   image: redis:7-alpine
