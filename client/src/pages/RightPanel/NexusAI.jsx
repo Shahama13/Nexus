@@ -13,6 +13,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import AttachmentModal from '../../components/AttachmentModal'
 import { getAttachmentUrl } from '../../services/attachments'
+import { v4 as uuidv4 } from 'uuid';
 
 const NexusAI = () => {
     const [message, setMessage] = useState('')
@@ -167,7 +168,7 @@ const NexusAI = () => {
 
 
         const msg = message.trim()
-        const tempId = crypto.randomUUID();
+        const tempId = uuidv4();
         let attachment = []
         const hasPDF = attachments.some(att => att.type === 'application/pdf');
         const pdfFile = attachments.find(att => att.type === 'application/pdf');
@@ -247,7 +248,7 @@ const NexusAI = () => {
             const decoder = new TextDecoder()
 
             let result = ""
-            const aiTempId = crypto.randomUUID();
+            const aiTempId = uuidv4();
 
             while (true) {
                 const { done, value } = await reader.read()

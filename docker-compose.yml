@@ -1,25 +1,13 @@
+name: nexus
+
 services:
-  client:
-    # Tells Docker to build an image using the Dockerfile in ./client directory
-    build: ./client
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nexus
     ports:
-     - "5173:5173"
-    depends_on:
-     - server
-
-  server:
-    build: ./server
-    ports:
-     - "3000:3000"
+      - "3000:3000"
     env_file:
-      - .env
-
-  # redis:
-  #   image: redis:7-alpine
-  #   ports:
-  #     - "6379:6379"
-  #   volumes:
-  #     - redis_data:/data
-
-# volumes:
-#   redis_data:
+      - ./server/.env
+    restart: unless-stopped

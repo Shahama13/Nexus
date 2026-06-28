@@ -43,6 +43,7 @@ export const getMessages = tryCatchWrapper(async (req, res, next) => {
 
     }
 
+
     const [messages, totalMsgCount] = await Promise.all([
         MessageModel
             .find({ chat: chatId })

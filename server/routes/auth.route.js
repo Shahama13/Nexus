@@ -97,7 +97,7 @@ router.get("/google/callback", (req, res, next) => {
 
         return res
             .cookie("token", token, { httpOnly: true, secure: false, maxAge: process.env.EXPIRES_IN * 24 * 60 * 60 * 1000 })
-            .redirect(process.env.FRONTEND_URL);
+            .redirect(`${process.env.FRONTEND_URL}`);
     })(req, res, next);
 });
 
