@@ -43,7 +43,7 @@ jobs:
       - name: Download task definition
         run: |
           aws ecs describe-task-definition \
-            --task-definition nexus-td \
+            --task-definition nexus-td2 \
             --query taskDefinition > task-def.json
 
       - name: Update image in task definition
