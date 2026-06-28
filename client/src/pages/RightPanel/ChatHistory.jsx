@@ -17,6 +17,7 @@ import { uploadAttachments } from '../../services/attachments'
 import { askAi } from '../../services/ai.js'
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { v4 as uuidv4 } from 'uuid';
 
 const ChatHistory = () => {
   const [message, setMessage] = useState('')
@@ -127,7 +128,7 @@ const ChatHistory = () => {
   const handleSendMessage = async () => {
     if ((!message.trim() && attachments.length === 0) || uploading) return;
     const msg = message.trim()
-    const tempId = crypto.randomUUID();
+    const tempId = uuidv4();
 
     const isAskingNexus = nexusMode
     const nexusQuery = nexusMode ? msg : null
@@ -204,7 +205,7 @@ const ChatHistory = () => {
 
       socket.emit(NEW_MESSAGE_EVENT, {
         chatId: activeChat._id,
-        content: displayMsg,  
+        content: displayMsg,
         tempId,
         threadId: currentReply ? currentReply : null
       })
@@ -218,7 +219,7 @@ const ChatHistory = () => {
         const decoder = new TextDecoder()
 
         let result = ""
-        const aiTempId = crypto.randomUUID();
+        const aiTempId = uuidv4();
 
         while (true) {
           const { done, value } = await reader.read()

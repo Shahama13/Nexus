@@ -1,7 +1,7 @@
 import api from './api';
 
 export async function streamResponse(formData) {
-  const response = await fetch(`${import.meta.env.VITE_API_URL}/ai/chat`, {
+  const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/ai/chat`, {
     method: "POST",
     // headers: {
     //   'Content-Type': 'multipart/form-data'
@@ -13,7 +13,7 @@ export async function streamResponse(formData) {
 }
 
 export async function askAi(userQuery,chatId) {
-  const response = await fetch(`${import.meta.env.VITE_API_URL}/ai/assistant/${chatId}`, {
+  const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/ai/assistant/${chatId}`, {
     method: "POST",
     headers: {
       'Content-Type': 'application/json'
