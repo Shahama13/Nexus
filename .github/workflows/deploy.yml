@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 env:
-  AWS_REGION: ap-south-1
+  AWS_REGION: us-east-1
   ECR_REPOSITORY: nexus-dep
   ECS_CLUSTER: fluffy-kangaroo-tdwa5m
   ECS_SERVICE: nexus-td2-service-o9ujwsaa
