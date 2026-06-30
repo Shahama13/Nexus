@@ -13,7 +13,7 @@ import MediaMessage from '../../components/MediaMessage'
 import FileAttachment from '../../components/FileAttachment'
 import FilePreview from '../../components/FilePreview.jsx'
 import AttachmentModal from '../../components/AttachmentModal'
-import { uploadAttachments } from '../../services/attachments'
+import { sendAttachments } from '../../services/attachments'
 import { askAi } from '../../services/ai.js'
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -93,8 +93,8 @@ const ChatHistory = () => {
           timestamp: new Date(msg.createdAt).getTime(),
           date: new Date(msg.createdAt).toDateString(),
           threadId: msg.threadId || null,
-          reactions: msg.reactions,
-          attachments: msg.attachments
+          reactions: msg.reactions || {},
+          attachments: msg.attachments || []
         })).reverse()
 
       if (initial) {
@@ -148,7 +148,7 @@ const ChatHistory = () => {
         if (msg) formData.append('caption', msg);
         if (currentReply) formData.append('threadId', currentReply.id);
 
-        const response = await uploadAttachments(formData);
+        const response = await sendAttachments(formData);
 
         const newMessage = response.data.message;
         // flushSync(() => {
@@ -180,15 +180,17 @@ const ChatHistory = () => {
           ...prev,
           {
             id: tempId,
+            tempId: tempId,
             chatId: activeChat._id,
             sender: { name: user.name, _id: user._id },
-            text: displayMsg,  // <-- here
+            text: displayMsg,
             isOwn: true,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase(),
             timestamp: Date.now(),
             date: new Date().toDateString(),
             createdAt: new Date().toISOString(),
             pending: true,
+            reactions: {},
             threadId: currentReply ? {
               _id: currentReply.id,
               sender: currentReply.sender,
@@ -310,42 +312,36 @@ const ChatHistory = () => {
 
     flushSync(() => {
       setMessages(prev => {
-        const byRealId = prev.find(m => m.id === message.id);
-        if (byRealId) return prev;
-        // Check if message already exists (by ID or tempId)
-        const exists = prev.find(m =>
-          m.id === message.id ||
-          (message.tempId && m.id === message.tempId)
-        );
-
-        if (exists) return prev; // ← Don't add if already exists
-
-
-        const byTempId = message.tempId
-          ? prev.find(m => m.id === message.tempId)
-          : null;
-
-
-
-        if (byTempId) {
-          return prev.map(m =>
-            m.id === message.tempId
-              ? {
-                ...m,
-                ...message,
-                isOwn: message.sender._id === user._id,
-                pending: false,
-              }
-              : m
-          );
+        // If this is a temp message being replaced
+        if (message.tempId) {
+          const tempIndex = prev.findIndex(m => m.id === message.tempId);
+          if (tempIndex !== -1) {
+            const updatedMessages = [...prev];
+            updatedMessages[tempIndex] = {
+              ...message,
+              id: message.id, // Use real ID from server
+              tempId: undefined, // Remove tempId
+              isOwn: message.sender._id === user._id,
+              pending: false,
+              reactions: message.reactions || {}
+            };
+            return updatedMessages;
+          }
         }
 
+        // Check if message already exists by real ID
+        const exists = prev.find(m => m.id === message.id);
+        if (exists) return prev;
+
+        // Add new message (not a temp replacement)
         return [
           ...prev,
           {
             ...message,
             isOwn: message.sender._id === user._id,
-          },
+            pending: false,
+            reactions: message.reactions || {}
+          }
         ];
       });
     });
@@ -367,11 +363,25 @@ const ChatHistory = () => {
     if (data.chatId !== activeChat._id) return;
 
     setMessages(prev =>
-      prev.map(m =>
-        m.id.toString() === data.messageId.toString()
-          ? { ...m, reactions: data.reactions }
-          : m
-      )
+      prev.map(m => {
+        // Check if this message matches by EITHER:
+        // 1. The real ID (m.id === data.messageId)
+        // 2. The temp ID (if the message hasn't been replaced yet)
+        const matches =
+          m.id.toString() === data.messageId.toString() ||
+          (m.tempId && m.tempId.toString() === data.messageId.toString());
+
+        if (matches) {
+          return {
+            ...m,
+            reactions: data.reactions,
+            // If this was a temp message, update its ID to the real one
+            id: data.messageId,
+            tempId: undefined // Remove tempId once replaced
+          };
+        }
+        return m;
+      })
     );
   }, [activeChat._id]);
 
@@ -429,7 +439,7 @@ const ChatHistory = () => {
         chatId: activeChat._id,
         typing: false
       })
-    }, 100)
+    }, 1000)
   }
 
   const handleReply = (item) => {
@@ -646,7 +656,44 @@ const ChatHistory = () => {
 
                     {item.text && (
                       <div className="px-4 flex flex-col">
-                        {isNexusAi ? <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {isNexusAi ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+                          ul: ({ children }) => (
+                            <ul className="list-disc pl-5 my-1 space-y-0.5">
+                              {children}
+                            </ul>
+                          ),
+                          li: ({ children }) => (
+                            <li className="leading-relaxed">
+                              {children}
+                            </li>
+                          ),
+                          strong: ({ children }) => (
+                            <strong className="font-semibold text-blue-400">
+                              {children}
+                            </strong>
+                          ),
+                          p: ({ children }) => (
+                            <p className="my-0.5 leading-relaxed">
+                              {children}
+                            </p>
+                          ),
+                          br: () => <br className="my-0.5" />,
+                          h1: ({ children }) => (
+                            <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400 my-2">
+                              {children}
+                            </h1>
+                          ),
+                          h2: ({ children }) => (
+                            <h2 className="text-xl font-semibold text-purple-600 dark:text-purple-400 my-1">
+                              {children}
+                            </h2>
+                          ),
+                          // Add emoji support
+                          p: ({ children }) => {
+                            // Check if children contains emoji and render appropriately
+                            return <p className="my-0.5 leading-relaxed">{children}</p>
+                          }
+                        }}>
                           {actualMessage}
                         </ReactMarkdown> :
                           <p className="text-sm leading-relaxed break-words"><span className={`${!item.isOwn ? 'text-blue-500' : 'text-white'} font-bold`} >{startsWithNexus && "@Nexus "}</span>{actualMessage}</p>

@@ -12,8 +12,5 @@ const validate = (req, res, next) => {
 
 export const newGroupChatValidator = [
     body("name").isString().withMessage("Name should be a string"),
-    body("participants").isMongoId().custom((value)=>{
-        
-    }),
     validate
 ]

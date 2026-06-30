@@ -37,10 +37,8 @@ const NexusAI = () => {
     const scrollPositionRef = useRef(0)
     const initialLoadRef = useRef(true)
     const modalRef = useRef(null);
+    const welcomeTriggeredRef = useRef(false);
 
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView()
-    }, [messages])
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -50,6 +48,16 @@ const NexusAI = () => {
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+
+    const scrollToBottom = useCallback((behavior = 'smooth') => {
+        setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({
+                behavior,
+                block: 'end'
+            });
+        }, 0);
     }, []);
 
     const handleRemoveAttachment = (index) => {
@@ -80,8 +88,6 @@ const NexusAI = () => {
 
         input.onchange = (e) => {
             const file = e.target.files[0];
-
-            console.log(file, "FILE IS HERERE")
 
             const newAttachment = {
                 file: file,
@@ -128,6 +134,102 @@ const NexusAI = () => {
                 setTimeout(() => {
                     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
                 }, 100)
+
+                const isUserWelcomed = localStorage.getItem(`user_welcomed_${user._id}`)
+                console.log(isUserWelcomed, newMessages.length === 0, !welcomeTriggeredRef.current)
+
+                if (newMessages.length === 0 && !isUserWelcomed && !welcomeTriggeredRef.current) {
+                    setIsResponding(true);
+                    welcomeTriggeredRef.current = true; // guards against double-fire, set this immediately instead
+
+                    try {
+                        const formData = new FormData();
+                        formData.append("isNewConversation", true);
+                        formData.append("userName", user.name);
+                        formData.append("chatId", activeChat._id);
+
+                        const response = await streamResponse(formData)
+
+                        welcomeTriggeredRef.current = true;
+                        const reader = response.body.getReader()
+                        const decoder = new TextDecoder()
+
+                        let result = ""
+                        const aiTempId = uuidv4();
+
+                        while (true) {
+                            const { done, value } = await reader.read()
+                            console.log({ done, value })
+
+                            if (done) break
+
+                            const chunk = decoder.decode(value)
+                            console.log("RAW CHUNK:", chunk)
+                            const lines = chunk.split("\n")
+
+                            for (const line of lines) {
+                                if (line.startsWith("data: ")) {
+                                    const data = JSON.parse(line.slice(6))
+
+                                    if (data.token) {
+
+
+                                        result += data.token
+
+                                        console.log(result)
+
+
+
+                                        setMessages((prev) => {
+                                            const existingText = prev.find(p => p.id === aiTempId)
+
+                                            if (existingText) {
+                                                return prev.map((p) =>
+                                                    p.id === aiTempId
+                                                        ? {
+                                                            ...p,
+                                                            text: result,
+                                                        }
+                                                        : p
+                                                )
+                                            }
+
+                                            return [
+                                                ...prev,
+                                                {
+                                                    id: aiTempId,
+                                                    chatId: activeChat._id,
+                                                    sender: { name: "Nexus AI" },
+                                                    text: result,
+                                                    isOwn: false,
+                                                }
+                                            ]
+                                        })
+
+                                        requestAnimationFrame(() => {
+                                            scrollToBottom('smooth');
+                                        });
+                                    }
+
+
+                                    if (data.done) {
+                                        console.log("Stream finished")
+                                        setIsResponding(false)
+                                        localStorage.setItem(`user_welcomed_${user._id}`, true)
+                                    }
+                                }
+                            }
+                        }
+
+
+                    } catch (error) {
+                        console.log(error, "error in streaming responsnes")
+                        setIsResponding(false)
+                        welcomeTriggeredRef.current = false
+                    }
+
+
+                }
             } else {
                 setMessages(prev => [...newMessages, ...prev])
 
@@ -299,7 +401,11 @@ const NexusAI = () => {
                                 ]
                             })
 
+                            requestAnimationFrame(() => {
+                                scrollToBottom('smooth');
+                            });
                         }
+
 
                         if (data.done) {
                             console.log("Stream finished")
@@ -315,8 +421,6 @@ const NexusAI = () => {
             setIsResponding(false)
 
         }
-
-
 
     }
 
@@ -422,7 +526,6 @@ const NexusAI = () => {
                     return (
                         <div
                             key={item.id}
-
                             className={`flex ${item.isOwn ? 'justify-end' : 'justify-start'} items-start gap-2`}
                         >
 
@@ -474,8 +577,6 @@ const NexusAI = () => {
                                 )}
 
 
-
-
                                 {/* message bubble */}
                                 <div
                                     className={`py-2 pb-3 relative rounded-2xl shadow-sm ${item.isOwn
@@ -485,7 +586,45 @@ const NexusAI = () => {
                                 >
 
                                     <div className="px-4">
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+                                            ul: ({ children }) => (
+                                                <ul className="list-disc pl-5 my-1 space-y-0.5">
+                                                    {children}
+                                                </ul>
+                                            ),
+                                            li: ({ children }) => (
+                                                <li className="leading-relaxed">
+                                                    {children}
+                                                </li>
+                                            ),
+                                            strong: ({ children }) => (
+                                                <strong className="font-semibold text-blue-400">
+                                                    {children}
+                                                </strong>
+                                            ),
+                                            p: ({ children }) => (
+                                                <p className="my-0.5 leading-relaxed">
+                                                    {children}
+                                                </p>
+                                            ),
+                                            // Handle newlines properly
+                                            br: () => <br className="my-0.5" />,
+                                            h1: ({ children }) => (
+                                                <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400 my-2">
+                                                    {children}
+                                                </h1>
+                                            ),
+                                            h2: ({ children }) => (
+                                                <h2 className="text-xl font-semibold text-purple-600 dark:text-purple-400 my-1">
+                                                    {children}
+                                                </h2>
+                                            ),
+                                            // Add emoji support
+                                            p: ({ children }) => {
+                                                // Check if children contains emoji and render appropriately
+                                                return <p className="my-0.5 leading-relaxed">{children}</p>
+                                            }
+                                        }}>
                                             {item.text}
                                         </ReactMarkdown>
                                     </div>
@@ -552,12 +691,13 @@ const NexusAI = () => {
 
                         <div
                             ref={modalRef}
-                            className="absolute bottom-14 left-4 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
+                            className="absolute bottom-14 left-4 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50 py-2"
                         >
 
                             <button
                                 onClick={() => handleAttachmentClick('image')}
-                                className="w-full flex items-center gap-3 px-4 py-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+
                             >
                                 <Image size={20} className="text-green-500" />
                                 <span className="text-sm text-gray-700 dark:text-gray-300">Image</span>
@@ -567,7 +707,8 @@ const NexusAI = () => {
 
                             <button
                                 onClick={() => handleAttachmentClick('pdf')}
-                                className="w-full flex items-center gap-3 px-4 py-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+
                             >
                                 <FileText size={20} className="text-red-500" />
                                 <span className="text-sm text-gray-700 dark:text-gray-300">Document</span>

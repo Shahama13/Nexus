@@ -16,7 +16,7 @@ export default function AddChatModal() {
   const { users, setUsers } = useAuth()
 
   const filteredUsers = users?.filter(user =>
-    user.name.toLowerCase().includes(searchQuery.toLowerCase())||
+    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
@@ -41,16 +41,16 @@ export default function AddChatModal() {
     )
   }
 
-  const handleCreate = async() => {
-    // Add your chat creation logic here
+  const handleCreate = async () => {
+  
 
-    if(isGroup){
-     newGroupChat(groupName, [...selectedUsers])
+    if (isGroup) {
+      newGroupChat(groupName, [...selectedUsers])
     }
-    else{
+    else {
 
-     await Promise.allSettled(selectedUsers.map((userId)=> newUserChat(userId)))
-      
+      await Promise.allSettled(selectedUsers.map((userId) => newUserChat(userId)))
+
     }
     handleClose()
   }
@@ -180,12 +180,9 @@ export default function AddChatModal() {
                       }`}
                   >
                     <div className="relative">
-                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-sm">
-                        {user.avatar}
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-lg font-semibold">
+                        {user?.name?.charAt(0).toUpperCase()}
                       </div>
-                      {user.online && (
-                        <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 rounded-full border-2 border-slate-800" />
-                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-white text-sm">

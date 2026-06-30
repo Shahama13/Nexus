@@ -6,6 +6,7 @@ import Chat from "../models/Chat.model.js";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import { mem0 } from "./ai.config.js";
 
 dotenv.config();
 
@@ -57,6 +58,10 @@ passport.use(new GoogleStrategy({
             participants: [user._id, new mongoose.Types.ObjectId(process.env.BOT_USER_ID)],
             admin: new mongoose.Types.ObjectId(process.env.BOT_USER_ID)
         });
+
+        mem0.add([{ role: "user", content: `My name is ${name}` }], {
+            user_id: user._id.toString()
+        })
 
     }
 
