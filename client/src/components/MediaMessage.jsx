@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Volume2, Download, File } from 'lucide-react';
+import { Play, Volume2, Download, File, FileText, ExternalLink } from 'lucide-react';
 
 
 const MediaMessage = ({ attachments, isOwn }) => {
@@ -57,21 +57,27 @@ const MediaMessage = ({ attachments, isOwn }) => {
 
             default:
                 return (
-                    <a
-                        href={attachment.url}
-                        download={attachment.fileName}
-                        className="block bg-gray-100 dark:bg-gray-700 rounded-lg p-3 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+
+                    <div
+                        key={index}
+                        className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                        onClick={() => window.open(attachment.url, '_blank')}
                     >
-                        <div className="flex items-center gap-3">
-                            <File size={24} />
-                            <div>
-                                <p className="text-sm font-medium">{attachment.fileName}</p>
-                                <p className="text-xs text-gray-500">
-                                    {formatFileSize(attachment.size)}
-                                </p>
-                            </div>
+                        <div className="flex-shrink-0">
+                            <FileText size={24} className="text-red-500" />
                         </div>
-                    </a>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                {attachment.fileName || 'PDF'}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {attachment.fileType || 'PDF'} • {(attachment.size / 1024).toFixed(1)} KB
+                            </p>
+                        </div>
+                        <ExternalLink size={16} className="text-gray-400 flex-shrink-0" />
+                    </div>
+
+
                 );
         }
     }

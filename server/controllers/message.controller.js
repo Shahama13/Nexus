@@ -148,7 +148,7 @@ export const sendAttachment = tryCatchWrapper(async (req, res, next) => {
                 size: file.size,
                 secure_url: result.secure_url, // Add this for compatibility
                 originalname: file.originalname, // Add this for compatibility
-                attachmentType: file.mimetype.startsWith('image/') ? "image" : file.mimetype.startsWith('video/') ? "video" : file.mimetype.startsWith('audio/') ? "audio" : "doc"
+                attachmentType: file.mimetype.startsWith('image/') ? "image" : file.mimetype.startsWith('video/') ? "video" : file.mimetype.startsWith('audio/') ? "audio" : "pdf"
             });
         }
         catch (uploadError) {

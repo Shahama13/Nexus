@@ -1,6 +1,6 @@
-import api from './api'; // Your axios instance
+import api from './api';
 
-export const uploadAttachments = async (formData) => {
+export const sendAttachments = async (formData) => {
   const response = await api.post('/messages/send-attachment', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
@@ -10,7 +10,7 @@ export const uploadAttachments = async (formData) => {
 };
 
 export const getAttachmentUrl = (formdata) => api.post("/attachment", formdata, {
-    headers: {
-        'Content-Type': 'multipart/form-data'
-    }
+  headers: {
+    'Content-Type': 'multipart/form-data'
+  }
 })

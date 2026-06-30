@@ -2,6 +2,8 @@ import { QdrantClient } from "@qdrant/js-client-rest";
 import { MemoryClient } from "mem0ai";
 import { tavily } from "@tavily/core";
 import { OpenAI } from "openai";
+import { config } from "dotenv";
+config()
 
 const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,

@@ -22,10 +22,24 @@ const FilePreview = ({ index, att }) => {
                     Your browser does not support the video tag.
                 </video>
             ) : (
-                <div className="flex items-center gap-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                    <FileText size={32} className="text-gray-400" />
-                    <span className="text-sm truncate max-w-[100px]">{att.fileName || 'Document'}</span>
+                <div
+                    key={index}
+                    className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                >
+                    <div className="flex-shrink-0">
+                        <FileText size={24} className="text-red-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {att.fileName || 'PDF'}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {att.type || 'PDF'} • {(att.size / 1024).toFixed(1)} KB
+                        </p>
+                    </div>
                 </div>
+
+
             )}
         </div>
     )

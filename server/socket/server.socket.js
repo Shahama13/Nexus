@@ -77,6 +77,45 @@ async function handleUserDisconnect(uid, io) {
 
 }
 
+// Helper function to update cached message
+async function updateCachedMessage(chatId, updatedMessage) {
+  try {
+    const redisKey = `chat:${chatId}:recent`;
+
+    // Get all cached messages
+    const cachedMessages = await redisClient.lrange(redisKey, 0, -1);
+    if (!cachedMessages || cachedMessages.length === 0) return;
+    let updated = false
+    const updatedCache = []
+
+    for (const cached of cachedMessages) {
+      const msg = JSON.parse(cached);
+      if (msg._id.toString() === updatedMessage._id.toString()) {
+        // Update the reactions
+        msg.reactions = updatedMessage.reactions;
+        updated = true;
+        updatedCache.push(JSON.stringify(msg))
+      } else {
+        updatedCache.push(cached);
+      }
+    }
+
+
+
+    // Replace the entire cache
+    if (updated) {
+      const pipeline = redisClient.multi()
+
+      pipeline.del(redisKey);
+      pipeline.rpush(redisKey, ...updatedCache);
+      pipeline.ltrim(redisKey, -30, -1);
+      await pipeline.exec()
+    }
+  } catch (error) {
+    console.error("Error updating cached message:", error);
+  }
+}
+
 
 export const initSocket = io => {
   try {
@@ -231,6 +270,8 @@ export const initSocket = io => {
           message.reactions = reactions;
           const updatedMessage = await message.save();
 
+          await updateCachedMessage(chatId, updatedMessage);
+
           await pub.publish('toggle-reaction',
             JSON.stringify({
               chatId,
@@ -319,7 +360,7 @@ export const initSocket = io => {
             JSON.stringify({
               id: savedMessage._id,
               chatId,
-              sender ,
+              sender,
               text: savedMessage.content,
               createdAt: savedMessage.createdAt,
               threadId: threadId ? {

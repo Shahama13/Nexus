@@ -2,9 +2,11 @@ import React, { useState } from 'react'
 import { User, MessageSquare, LogOut, Camera, ChevronRight, Check, X } from 'lucide-react'
 import { logout } from '../../services/auth'
 import { useAuth } from '../../store/auth'
+import { useUIStore } from '../../store/uiStore'
 
 export default function MyProfile() {
   const { clearUser, user } = useAuth()
+  const { setActiveChat,setLeftView ,setRightView} = useUIStore()
   const [username, setUsername] = useState(user.email.split("@")[0])
   const [name, setName] = useState(user.name)
   const [about, setAbout] = useState('Hey there! I am using Nexus.')
@@ -13,8 +15,11 @@ export default function MyProfile() {
   const [tempValue, setTempValue] = useState('')
 
   const handleLogout = () => {
-    logout()
+    setActiveChat(null)
+    setLeftView('')
+    setRightView('')
     clearUser()
+    logout()
   }
 
   const handleEdit = (field, currentValue) => {

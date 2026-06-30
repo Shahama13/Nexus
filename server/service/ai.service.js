@@ -11,7 +11,8 @@ import ChatModel from "../models/Chat.model.js";
 
 
 export const streamChat = tryCatchWrapper(async (req, res) => {
-    const { message, chatId, source = "auto" } = req.body
+   
+    const { message, chatId, source = "auto", isNewConversation = false, userName } = req.body
     const pdfFile = req.file
     const attachment = req.body.attachment ? JSON.parse(req.body.attachment) : null
 
@@ -28,12 +29,6 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
 
     let openAIMessages = []
     if (cachedMessages?.length > 0) {
-
-        // openAIMessages = cachedMessages.map(msg => {
-        //     const parsed = JSON.parse(msg)
-        //     return { role: parsed.role, content: parsed.content }
-        // })
-
         openAIMessages = cachedMessages.map((msg) => {
             const parsed = JSON.parse(msg)
 
@@ -69,26 +64,19 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
         })
     }
 
-
     let hasPDF = false
     let pdfProcessed = false
-
 
     if (pdfFile) {
         hasPDF = true
         const result = await processAndStorePdf(pdfFile.buffer, userId, chatId)
         if (result.success) {
             pdfProcessed = true
-
             console.log(`PDF processed: ${result.chunks} chunks for user`)
         }
-
     }
 
     if (attachment && attachment.attachmentType === "image") {
-
-        // attachmentsToSave.push(attachment)
-
         const userContent = [
             {
                 type: "text",
@@ -107,19 +95,30 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
             content: userContent
         })
 
-    } else {
+    } else if (message) {
         openAIMessages.push({
             role: "user",
             content: message
         })
+    } else if (isNewConversation) {
+        // For welcome message, create a more specific user message
+        openAIMessages.push({
+            role: "user",
+            content: `Please introduce yourself to me. My name is ${userName || 'new user'}. I'm starting a conversation with you for the first time.`
+        });
     }
 
-    const classifier = await client.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-            {
-                role: "system",
-                content: `You decide what context is needed to answer the user's message.
+    let needsWebSearch = false, needsMemory = false, saveToMemory = false, needsPDF = false;
+
+    // Only run classifier for non-welcome messages
+    if (!isNewConversation && message) {
+        try {
+            const classifier = await client.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [
+                    {
+                        role: "system",
+                        content: `You decide what context is needed to answer the user's message.
 Reply with JSON only:
 
 {
@@ -134,16 +133,22 @@ Reply with JSON only:
 - saveToMemory: true if the user shares personal information
 - needsPDF: true if the user is asking about an uploaded document, PDF, file content, summary, chapter, section, page, or document-related information
 - All false for casual chat, greetings, coding help`
-            },
-            { role: "user", content: message }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 50
-    })
-
-    let { needsWebSearch, needsMemory, saveToMemory, needsPDF } = JSON.parse(
-        classifier.choices[0].message.content
-    )
+                    },
+                    { role: "user", content: message }
+                ],
+                response_format: { type: "json_object" },
+                max_tokens: 50
+            });
+            ({ needsWebSearch, needsMemory, saveToMemory, needsPDF } = JSON.parse(classifier.choices[0].message.content));
+        } catch (error) {
+            console.error("Classifier error:", error);
+            // Default values if classifier fails
+            needsWebSearch = false;
+            needsMemory = false;
+            saveToMemory = false;
+            needsPDF = false;
+        }
+    }
 
     console.log("Classification:", { needsWebSearch, needsMemory, saveToMemory, needsPDF })
 
@@ -164,29 +169,47 @@ Reply with JSON only:
         }
     }
 
+    // Build system prompt with contexts
+    let systemPrompt = "";
+
+    if (isNewConversation) {
+        systemPrompt = `🌟 You're speaking with a new user for the first time.
+The user's name is ${userName || 'new user'}
+
+About you:
+- Name: Nexus
+- Role: Intelligent AI Assistant
+- Capabilities: Text analysis, PDF processing, image understanding, web search, memory retention
+
+Introduction Guidelines:
+1. Start with a warm, friendly greeting using the user's name if you know it
+2. Give a detailed description of your capabilities (PDF, images, web search, memory, conversation history)
+3. Ask an open-ended question about how you can help them
+4. Keep it friendly - be enthusiastic and approachable
+5. Make them feel welcome and excited to use your services
+
+Remember: This is the user's first impression of you. Make it count!`;
+    } else {
+        systemPrompt = "Your name is Nexus. You are a helpful, detailed, and knowledgeable AI assistant.";
+    }
 
     const [memories, searchResult] = await Promise.all([
-        needsMemory
+        needsMemory && !isNewConversation
             ? mem0.search(message, { filters: { user_id: req.user._id.toString() } })
             : Promise.resolve(null),
-        needsWebSearch
+        needsWebSearch && !isNewConversation
             ? Tavily.search(message, { max_results: 3 })
             : Promise.resolve(null)
     ])
 
-    // Build system prompt with contexts
-    let systemPrompt = "";
-
     if (memories?.results?.length > 0) {
         const memoryContext = memories.results.map(m => `- ${m.memory}`).join("\n")
-        systemPrompt += `Relevant facts about the user:\n${memoryContext}\n\n`;
+        systemPrompt += `\n\nRelevant facts about the user:\n${memoryContext}\n\n`;
     }
 
     if (searchResult?.results?.length > 0) {
         const webContext = searchResult.results.map(r => r.content).join("\n")
-
-        systemPrompt += `Current web search results:\n${webContext}\nUse this if relevant.`
-
+        systemPrompt += `\n\nCurrent web search results:\n${webContext}\nUse this if relevant.`
     }
 
     if (pdfChunks.length > 0) {
@@ -194,13 +217,17 @@ Reply with JSON only:
             `[Chunk ${index + 1} (relevance: ${Math.round(chunk.score * 100)}%)] :\n ${chunk.text}`
         ).join("\n\n---\n\n")
 
-        systemPrompt += `Context from your uploaded PDF document:\n${pdfContext}\n\n`;
+        systemPrompt += `\n\nContext from your uploaded PDF document:\n${pdfContext}\n\n`;
         systemPrompt += `Answer the question based on the PDF content above. If the answer is not in the PDF, say "I couldn't find that information in your PDF document."\n\n`;
-    } else if (needsPDF && pdfChunks.length === 0 && !hasPDF) {
-        systemPrompt += `The user asked about a PDF document, but no PDF has been uploaded yet. Ask them to upload a PDF first.\n\n`;
-    } else if (pdfProcessed && pdfChunks.length === 0) {
-        // User has PDF but no relevant chunks found
-        systemPrompt += `The user has uploaded a PDF, but the query doesn't match any content in it. Inform them that the answer might not be in the document.\n\n`;
+    } else if (needsPDF && pdfChunks.length === 0 && !hasPDF && !isNewConversation) {
+        systemPrompt += `\n\nThe user asked about a PDF document, but no PDF has been uploaded yet. Ask them to upload a PDF first.\n\n`;
+    } else if (pdfProcessed && pdfChunks.length === 0 && !isNewConversation) {
+        systemPrompt += `\n\nThe user has uploaded a PDF, but the query doesn't match any content in it. Inform them that the answer might not be in the document.\n\n`;
+    }
+
+    // For non-welcome messages, add instructions for comprehensive answers
+    if (!isNewConversation) {
+        systemPrompt += `\n\nOnly reply what is asked`;
     }
 
     if (systemPrompt) {
@@ -210,11 +237,11 @@ Reply with JSON only:
         });
     }
 
-    console.log(openAIMessages, "openAIMessages")
+    console.log("Sending to AI:", JSON.stringify(openAIMessages, null, 2))
 
     try {
         const stream = await client.chat.completions.create({
-            model: "gpt-5.5",
+            model: "gpt-4o-mini", 
             messages: openAIMessages,
             stream: true,
         })
@@ -228,9 +255,10 @@ Reply with JSON only:
             }
         }
 
+
         // Save to DB and cache
         const [savedUserMsg, savedAiMsg] = await Promise.all([
-            MessageModel.create({ sender: req.user._id, content: message, chat: chatId, attachments: attachment ? [attachment] : [] }),
+            message ? MessageModel.create({ sender: req.user._id, content: message || "Welcome message", chat: chatId, attachments: attachment ? [attachment] : [] }) : Promise.resolve(null),
             MessageModel.create({
                 sender: new mongoose.Types.ObjectId(process.env.BOT_USER_ID),
                 content: result,
@@ -239,12 +267,14 @@ Reply with JSON only:
         ])
 
         const pipeline = redisClient.multi()
-        pipeline.rpush(redisKey, JSON.stringify({
-            _id: savedUserMsg._id,
-            sender: { _id: req.user._id, name: req.user.name },
-            chat: chatId, content: message, attachments: attachment ? [attachment] : [],
-            createdAt: savedUserMsg.createdAt, role: "user"
-        }))
+        if(savedUserMsg){
+            pipeline.rpush(redisKey, JSON.stringify({
+                _id: savedUserMsg._id,
+                sender: { _id: req.user._id, name: req.user.name },
+                chat: chatId, content: message , attachments: attachment ? [attachment] : [],
+                createdAt: savedUserMsg.createdAt, role: "user"
+            }))
+        }
         pipeline.rpush(redisKey, JSON.stringify({
             _id: savedAiMsg._id,
             sender: { _id: process.env.BOT_USER_ID, name: "Nexus AI" },
@@ -252,12 +282,10 @@ Reply with JSON only:
             createdAt: savedAiMsg.createdAt, role: "assistant"
         }))
 
-        // tells which indexes to keeep
         pipeline.ltrim(redisKey, -30, -1)
         await pipeline.exec()
 
-        // Only store memory if it was a personal/meaningful message
-        if (saveToMemory) {
+        if (saveToMemory && !isNewConversation && message) {
             mem0.add([{ role: "user", content: message }], {
                 user_id: req.user._id.toString()
             }).catch(err => console.error("MEM0 ADD ERROR:", err))
@@ -267,8 +295,15 @@ Reply with JSON only:
         res.end()
 
     } catch (error) {
-        console.error(error)
-        res.status(500).end()
+        console.error("Stream error:", error)
+        // Send a fallback response
+        const fallbackResponse = isNewConversation
+            ? `Hello${userName ? ' ' + userName : ''}! 👋 I'm Nexus, your AI assistant. How can I help you today?`
+            : "I'm having trouble processing your request. Could you please try again?";
+
+        res.write(`data: ${JSON.stringify({ token: fallbackResponse })}\n\n`)
+        res.write(`data: ${JSON.stringify({ done: true })}\n\n`)
+        res.end()
     }
 })
 
@@ -276,7 +311,7 @@ export const generateResponseOnMessageContext = tryCatchWrapper(async (req, res,
     const { chatId } = req.params
     const { userQuery } = req.body
 
-    if(!userQuery) return
+    if (!userQuery) return
 
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");

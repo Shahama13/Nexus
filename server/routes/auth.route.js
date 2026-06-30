@@ -9,6 +9,7 @@ import { body, validationResult } from "express-validator";
 import { signUpValidator } from "../validators/auth.validator.js";
 import mongoose from "mongoose";
 import Chat from "../models/Chat.model.js";
+import { mem0 } from "../config/ai.config.js";
 const router = express.Router();
 
 router.post("/signup", signUpValidator, tryCatchWrapper(
@@ -33,9 +34,11 @@ router.post("/signup", signUpValidator, tryCatchWrapper(
             isGroupChat: false,
             participants: [user._id, new mongoose.Types.ObjectId(process.env.BOT_USER_ID)],
             admin: new mongoose.Types.ObjectId(process.env.BOT_USER_ID)
-
         });
 
+        mem0.add([{role:"user", content: `My name is ${name}`}],{
+            user_id:user._id.toString()
+        })
 
         const token = jwt.sign({ id: user._id, name: user.name }, process.env.JWT_SECRET, { expiresIn: `${process.env.EXPIRES_IN}d` });
         res

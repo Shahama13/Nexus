@@ -12,7 +12,7 @@ const validate = (req, res, next) => {
 
 export const signUpValidator = [
     body("email").isEmail().withMessage("Email address should be valid"),
-    body("name").isString().isLength({min:3, max:20}).withMessage("Name should be between 3 to 20 characters"),,
+    body("name").isString().isLength({min:3, max:25}).withMessage("Name should be between 3 to 25 characters"),,
     body("password").isLength({min:6, max:12}).withMessage("Password should be between 6 to 12 characters"),
     validate
 ]
