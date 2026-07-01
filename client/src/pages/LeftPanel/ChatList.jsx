@@ -230,7 +230,7 @@ export default function ChatList() {
                       )}
                     </p>
                   ) : (
-                    <p className="chat-preview">AI assistant</p>
+                    <p className="chat-preview"> {isBot ? "AI assistant" : "Start a conversation"}</p>
                   )}
                 </div>
 
