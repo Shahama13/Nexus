@@ -1,11 +1,10 @@
-import { FileText, Image, Music, Video } from 'lucide-react'
-import React, { useEffect, useRef } from 'react'
+import { FileText, Image, Music, Video, Sparkles } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import '../styles/AttachmentModal.scss';
 
 const AttachmentModal = ({ setAttachments, setShowAttachmentModal }) => {
-
     const modalRef = useRef(null);
 
-    // Close modal when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (modalRef.current && !modalRef.current.contains(event.target)) {
@@ -14,11 +13,10 @@ const AttachmentModal = ({ setAttachments, setShowAttachmentModal }) => {
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    }, [setShowAttachmentModal]);
 
     const handleAttachClick = (fileType) => {
         setShowAttachmentModal(false);
-        // Create a new file input with specific accept attribute
         const input = document.createElement('input');
         input.type = 'file';
         input.multiple = true;
@@ -55,44 +53,52 @@ const AttachmentModal = ({ setAttachments, setShowAttachmentModal }) => {
         input.click();
     };
 
-
     return (
-        <div
-            ref={modalRef}
-            className="absolute bottom-14 left-4 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
-        >
-            <div className="py-2">
+        <div ref={modalRef} className="attachment-modal">
+            <div className="modal-header">
+                <Sparkles size={16} className="modal-icon" />
+                <span className="modal-title">Add Attachment</span>
+            </div>
+            <div className="modal-options">
                 <button
                     onClick={() => handleAttachClick('image')}
-                    className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="modal-option"
                 >
-                    <Image size={20} className="text-green-500" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Photos</span>
+                    <div className="option-icon image-icon">
+                        <Image size={20} />
+                    </div>
+                    <span className="option-label">Photos</span>
                 </button>
                 <button
                     onClick={() => handleAttachClick('video')}
-                    className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="modal-option"
                 >
-                    <Video size={20} className="text-blue-500" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Videos</span>
+                    <div className="option-icon video-icon">
+                        <Video size={20} />
+                    </div>
+                    <span className="option-label">Videos</span>
                 </button>
                 <button
                     onClick={() => handleAttachClick('audio')}
-                    className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="modal-option"
                 >
-                    <Music size={20} className="text-purple-500" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Audio</span>
+                    <div className="option-icon audio-icon">
+                        <Music size={20} />
+                    </div>
+                    <span className="option-label">Audio</span>
                 </button>
                 <button
                     onClick={() => handleAttachClick('pdf')}
-                    className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="modal-option"
                 >
-                    <FileText size={20} className="text-red-500" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Document</span>
+                    <div className="option-icon pdf-icon">
+                        <FileText size={20} />
+                    </div>
+                    <span className="option-label">Document</span>
                 </button>
             </div>
         </div>
-    )
-}
+    );
+};
 
-export default AttachmentModal
+export default AttachmentModal;

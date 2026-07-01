@@ -1,4 +1,10 @@
+import { extractText } from "unpdf";
+import { v4 as uuidv4 } from 'uuid';
 import { client, qdrant, mem0, Tavily } from "../config/ai.config.js";
+
+function getUserCollection(userId) {
+    return `pdf_${userId}`
+}
 
 async function ensureCollectionExists(userId) {
     const collectionName = getUserCollection(userId)
@@ -10,7 +16,7 @@ async function ensureCollectionExists(userId) {
         await qdrant.createCollection(collectionName, {
             vectors: { size: 1536, distance: "Cosine" }
         });
-        console.log("Collection created:", collectionName)
+        // console.log("Collection created:", collectionName)
     }
 
     await qdrant.createPayloadIndex(collectionName, {
@@ -134,7 +140,7 @@ export async function searchPDFContext(query, userId, chatId) {
 
         })
 
-        console.log(searchResult, "this is your search result ")
+        // console.log(searchResult, "this is your search result ")
         if (searchResult.length > 0) {
             return searchResult.map((point) => ({
                 text: point.payload.text,

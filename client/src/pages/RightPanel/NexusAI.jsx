@@ -1,12 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Paperclip, Smile, Send, Image, FileText, FileTextIcon, ExternalLink } from 'lucide-react'
+import {
+    Paperclip, Send, Image, FileText, ExternalLink,
+    Search, Video, MoreVertical, Sparkles, Check, CheckCheck,
+    Copy, MessageSquare, ThumbsUp, ThumbsDown, X
+} from 'lucide-react'
 import { useUIStore } from '../../store/uiStore'
 import { JOIN_CHAT_EVENT, TOGGLE_REACTION_EVENT, NEW_MESSAGE_EVENT, TYPING, USER_ONLINE_EVENT, USER_OFFLINE_EVENT, CHECK_ONLINE_EVENT } from '../../constants/events'
 import { useAuth } from '../../store/auth'
 import { useSocketEvents } from '../../hooks/useSocketEvents'
 import { getMessages, sendMessage } from '../../services/message'
 import { flushSync } from 'react-dom'
-import { Reply, X } from 'lucide-react'
+import { Reply } from 'lucide-react'
 import moment from 'moment/moment'
 import { streamResponse } from '../../services/ai'
 import ReactMarkdown from "react-markdown";
@@ -14,6 +18,7 @@ import remarkGfm from "remark-gfm";
 import AttachmentModal from '../../components/AttachmentModal'
 import { getAttachmentUrl } from '../../services/attachments'
 import { v4 as uuidv4 } from 'uuid';
+import '../../styles/NexusAI.scss'
 
 const NexusAI = () => {
     const [message, setMessage] = useState('')
@@ -22,6 +27,7 @@ const NexusAI = () => {
     const [showAttachmentModal, setShowAttachmentModal] = useState(false)
     const [attachments, setAttachments] = useState([]);
     const [uploading, setUploading] = useState(false);
+    const [isTyping, setIsTyping] = useState(false)
 
     const [messages, setMessages] = useState([])
     const [currentPage, setCurrentPage] = useState(1)
@@ -38,6 +44,17 @@ const NexusAI = () => {
     const initialLoadRef = useRef(true)
     const modalRef = useRef(null);
     const welcomeTriggeredRef = useRef(false);
+
+    useEffect(() => {
+        if (isResponding) {
+            requestAnimationFrame(() => {
+                messagesEndRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "end",
+                });
+            });
+        }
+    }, [isResponding]);
 
 
     useEffect(() => {
@@ -136,12 +153,11 @@ const NexusAI = () => {
                 }, 100)
 
                 const isUserWelcomed = localStorage.getItem(`user_welcomed_${user._id}`)
-                console.log(isUserWelcomed, newMessages.length === 0, !welcomeTriggeredRef.current)
 
                 if (newMessages.length === 0 && !isUserWelcomed && !welcomeTriggeredRef.current) {
                     setIsResponding(true);
                     welcomeTriggeredRef.current = true; // guards against double-fire, set this immediately instead
-
+                    setIsTyping(true);
                     try {
                         const formData = new FormData();
                         formData.append("isNewConversation", true);
@@ -159,12 +175,10 @@ const NexusAI = () => {
 
                         while (true) {
                             const { done, value } = await reader.read()
-                            console.log({ done, value })
 
                             if (done) break
 
                             const chunk = decoder.decode(value)
-                            console.log("RAW CHUNK:", chunk)
                             const lines = chunk.split("\n")
 
                             for (const line of lines) {
@@ -173,12 +187,8 @@ const NexusAI = () => {
 
                                     if (data.token) {
 
-
+                                        setIsTyping(false);
                                         result += data.token
-
-                                        console.log(result)
-
-
 
                                         setMessages((prev) => {
                                             const existingText = prev.find(p => p.id === aiTempId)
@@ -227,7 +237,9 @@ const NexusAI = () => {
                         setIsResponding(false)
                         welcomeTriggeredRef.current = false
                     }
-
+                    finally {
+                        setIsTyping(false);
+                    }
 
                 }
             } else {
@@ -280,7 +292,6 @@ const NexusAI = () => {
             const formData = new FormData()
             formData.append('attachment', attachments[0].file);
             const { data } = await getAttachmentUrl(formData)
-            console.log("Attachment url", data)
             attachment.push(data.attachment)
         }
 
@@ -288,7 +299,6 @@ const NexusAI = () => {
             const formData = new FormData()
             formData.append('attachment', attachments[0].file);
             const { data } = await getAttachmentUrl(formData)
-            console.log("Attachment url", data)
             attachment.push(data.attachment)
         }
 
@@ -323,9 +333,11 @@ const NexusAI = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
 
         setIsResponding(true)
+        setIsTyping(true)
 
         setMessage('')
         setAttachments([])
+
 
         try {
 
@@ -354,12 +366,9 @@ const NexusAI = () => {
 
             while (true) {
                 const { done, value } = await reader.read()
-                console.log({ done, value })
-
                 if (done) break
 
                 const chunk = decoder.decode(value)
-                console.log("RAW CHUNK:", chunk)
                 const lines = chunk.split("\n")
 
                 for (const line of lines) {
@@ -370,10 +379,6 @@ const NexusAI = () => {
 
 
                             result += data.token
-
-                            console.log(result)
-
-
 
                             setMessages((prev) => {
                                 const existingText = prev.find(p => p.id === aiTempId)
@@ -397,9 +402,15 @@ const NexusAI = () => {
                                         sender: { name: user.name, _id: user._id },
                                         text: result,
                                         isOwn: false,
+                                        date: new Date().toDateString(),
+                                        timestamp: Date.now(),
+                                        createdAt: new Date().toISOString(),
+
                                     }
                                 ]
                             })
+
+                            setIsTyping(false)
 
                             requestAnimationFrame(() => {
                                 scrollToBottom('smooth');
@@ -420,6 +431,8 @@ const NexusAI = () => {
             console.log(error, "error in streaming responsnes")
             setIsResponding(false)
 
+        } finally {
+            setIsTyping(false)
         }
 
     }
@@ -477,75 +490,81 @@ const NexusAI = () => {
 
 
     return (
-        <div
-            style={{
-                backgroundImage: "url('/back.png')",
-                backgroundSize: "cover",
-                backgroundPosition: "center"
-            }}
-            className="flex-1 flex flex-col h-screen bg-cover bg-center"
-        >
+        <div className="nexus-ai" style={{
+            backgroundImage: "url('/back3.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center"
+        }}>
             {/* Header */}
-            <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
-                <div className="flex items-center gap-3 cursor-pointer">
-                    <div className="relative">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-semibold">
-                            🤖
-                        </div>
-
+            <div className="nexus-header">
+                <div className="nexus-header-left">
+                    <div className="nexus-avatar">
+                        <Sparkles size={20} />
                     </div>
-                    <div>
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Nexus AI</h2>
-
-
+                    <div className="nexus-header-info">
+                        <div className="nexus-title-row">
+                            <h2>Nexus AI</h2>
+                            {/* <span className="nexus-badge">AI Assistant</span> */}
+                        </div>
+                        <p className="nexus-tagline">Always here to help</p>
                     </div>
                 </div>
+                {/* <div className="nexus-header-actions">
+                    <button className="icon-btn"><Search size={18} /></button>
+                    <button className="icon-btn"><Video size={18} /></button>
+                    <button className="icon-btn"><MoreVertical size={18} /></button>
+                </div> */}
             </div>
 
             {/* Messages Area */}
             <div
                 ref={messagesContainerRef}
                 onScroll={handleScroll}
-                className="flex-1 overflow-y-auto px-6 py-4 space-y-4 pb-0"
-                style={{ scrollbarWidth: 'thin' }}
+                className="nexus-messages"
             >
                 {loading && currentPage > 1 && (
-                    <div className="flex justify-center py-2">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                    <div className="nexus-loading">
+                        <div className="nexus-spinner"></div>
                     </div>
                 )}
 
-                {messages.map(item => {
+
+                {messages.map((item, idx) => {
                     const time = new Date(item.createdAt).toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit',
                         hour12: true
                     }).toUpperCase();
 
+                    const isLastMessage = idx === messages.length - 1;
 
                     return (
                         <div
                             key={item.id}
-                            className={`flex ${item.isOwn ? 'justify-end' : 'justify-start'} items-start gap-2`}
+                            className={`nexus-message-row ${item.isOwn ? 'own' : 'other'}`}
                         >
+                            {!item.isOwn && (
+                                <div className="nexus-message-avatar">
+                                    <Sparkles size={14} />
+                                </div>
+                            )}
 
-
-                            <div className={`flex flex-col ${item.isOwn ? 'items-end' : 'items-start'} max-w-3xl`}>
+                            <div className={`nexus-message-col ${item.isOwn ? 'own' : 'other'}`}>
                                 {!item.isOwn && activeChat.isGroupChat && (
-                                    <span className="text-xs text-gray-500 dark:text-gray-400 mb-1 px-1">
+                                    <span className="nexus-sender-name">
                                         {item.sender.name}
                                     </span>
                                 )}
 
                                 {item?.attachments && item?.attachments?.length > 0 && (
-                                    <div className="space-x-2 flex flex-row mb-2">
+                                    <div className="nexus-attachments">
                                         {item?.attachments.map((attachment, index) => {
                                             if (attachment?.attachmentType === 'image') {
                                                 return (<img
                                                     key={index}
                                                     src={attachment?.url}
                                                     alt={attachment?.fileName || 'Image'}
-                                                    className="w-[30vw] rounded-lg cursor-pointer hover:opacity-90 transition "
+                                                    className="nexus-attachment-image"
                                                     onClick={() => window.open(attachment.url, '_blank')}
                                                     loading="lazy"
                                                 />)
@@ -553,21 +572,21 @@ const NexusAI = () => {
                                                 return (
                                                     <div
                                                         key={index}
-                                                        className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                                                        className="nexus-attachment-file"
                                                         onClick={() => window.open(attachment.url, '_blank')}
                                                     >
-                                                        <div className="flex-shrink-0">
-                                                            <FileText size={24} className="text-red-500" />
+                                                        <div className="file-icon">
+                                                            <FileText size={24} />
                                                         </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                                        <div className="file-info">
+                                                            <p className="file-name">
                                                                 {attachment.fileName || 'PDF'}
                                                             </p>
-                                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                            <p className="file-meta">
                                                                 {attachment.fileType || 'PDF'} • {(attachment.size / 1024).toFixed(1)} KB
                                                             </p>
                                                         </div>
-                                                        <ExternalLink size={16} className="text-gray-400 flex-shrink-0" />
+                                                        <ExternalLink size={16} className="file-external" />
                                                     </div>
                                                 );
                                             }
@@ -576,58 +595,41 @@ const NexusAI = () => {
                                     </div>
                                 )}
 
-
                                 {/* message bubble */}
-                                <div
-                                    className={`py-2 pb-3 relative rounded-2xl shadow-sm ${item.isOwn
-                                        ? 'bg-blue-500 text-white rounded-tr-none'
-                                        : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-tl-none'
-                                        }  ${item?.reactions && Object.keys(item?.reactions).length > 0 ? "mb-3" : ""}`}
-                                >
-
-                                    <div className="px-4">
+                                <div className={`nexus-bubble ${item.isOwn ? 'own' : 'other'}`}>
+                                    <div className="nexus-bubble-text">
                                         <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
                                             ul: ({ children }) => (
-                                                <ul className="list-disc pl-5 my-1 space-y-0.5">
-                                                    {children}
-                                                </ul>
+                                                <ul className="md-ul">{children}</ul>
                                             ),
                                             li: ({ children }) => (
-                                                <li className="leading-relaxed">
-                                                    {children}
-                                                </li>
+                                                <li className="md-li">{children}</li>
                                             ),
                                             strong: ({ children }) => (
-                                                <strong className="font-semibold text-blue-400">
-                                                    {children}
-                                                </strong>
+                                                <strong className="md-strong">{children}</strong>
                                             ),
                                             p: ({ children }) => (
-                                                <p className="my-0.5 leading-relaxed">
-                                                    {children}
-                                                </p>
+                                                <p className="md-p">{children}</p>
                                             ),
-                                            // Handle newlines properly
-                                            br: () => <br className="my-0.5" />,
+                                            br: () => <br className="md-br" />,
                                             h1: ({ children }) => (
-                                                <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400 my-2">
-                                                    {children}
-                                                </h1>
+                                                <h1 className="md-h1">{children}</h1>
                                             ),
                                             h2: ({ children }) => (
-                                                <h2 className="text-xl font-semibold text-purple-600 dark:text-purple-400 my-1">
-                                                    {children}
-                                                </h2>
+                                                <h2 className="md-h2">{children}</h2>
                                             ),
-                                            // Add emoji support
-                                            p: ({ children }) => {
-                                                // Check if children contains emoji and render appropriately
-                                                return <p className="my-0.5 leading-relaxed">{children}</p>
-                                            }
                                         }}>
                                             {item.text}
                                         </ReactMarkdown>
                                     </div>
+
+                                    <div className={`nexus-bubble-meta ${item.isOwn ? 'own' : 'other'}`}>
+                                        <span className={`nexus-time ${item.isOwn ? 'own' : 'other'}`}>{time}</span>
+                                        {item.isOwn && (
+                                            <CheckCheck size={14} className="nexus-read-icon" />
+                                        )}
+                                    </div>
+
 
                                 </div>
                             </div>
@@ -635,128 +637,111 @@ const NexusAI = () => {
                     );
                 })}
 
-
+                {isTyping && (
+                    <div className="nexus-message-row other">
+                        <div className="nexus-message-avatar">
+                            <Sparkles size={14} />
+                        </div>
+                        <div className="nexus-typing-bubble">
+                            <div className="nexus-typing-dots">
+                                <span></span><span></span><span></span>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div ref={messagesEndRef} />
             </div>
 
             {/* Message Input */}
-            <div className={`flex-shrink-5 border-none bg-white  m-4 dark:bg-gray-800 border-t border-gray-200 rounded-b-4xl dark:border-gray-700  py-2 rounded-t-4xl`}>
+            <div className="nexus-input-container">
 
                 {attachments.length > 0 && (
-                    <div className="px-4 mb-2">
-                        <div className="flex flex-wrap gap-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                    <div className="nexus-attachments-preview">
+                        <div className="attachments-preview-list">
                             {attachments.map((att, index) => (
-                                // <FileAttachment att={att} index={index} handleRemoveAttachment={handleRemoveAttachment} key={index} />
-                                <div className='relative group'>
-                                    {att.type.startsWith("image/") ? <img src={att.preview} alt={att.name} className="w-20 h-20 object-cover rounded-lg" /> :
-
-
-                                        <div
-                                            key={index}
-                                            className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition"
-                                        >
-                                            <div className="flex-shrink-0">
-                                                <FileText size={24} className="text-red-500" />
+                                <div className='attachment-preview-item' key={index}>
+                                    {att.type.startsWith("image/") ? (
+                                        <img src={att.preview} alt={att.name} className="preview-image" />
+                                    ) : (
+                                        <div className="preview-file">
+                                            <div className="file-icon">
+                                                <FileText size={24} />
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                            <div className="file-info">
+                                                <p className="file-name">
                                                     {att.name || 'PDF'}
                                                 </p>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                <p className="file-meta">
                                                     {att.type || 'PDF'} • {(att.size / 1024).toFixed(1)} KB
                                                 </p>
                                             </div>
                                         </div>
-                                    }
+                                    )}
                                     <button
                                         onClick={() => handleRemoveAttachment(index)}
-                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 
-                                                        opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer
-                                                        hover:bg-red-600 focus:outline-none"
+                                        className="preview-remove-btn"
                                     >
                                         <X size={14} />
                                     </button>
                                 </div>
                             ))}
-
                         </div>
                     </div>
                 )}
 
 
-                <div className="flex relative items-center gap-3 px-6">
+                <div className="nexus-input-row">
                     {showAttachmentModal && (
-                        // <AttachmentModal setAttachments={setAttachments} setShowAttachmentModal={setShowAttachmentModal} />
-
-                        <div
-                            ref={modalRef}
-                            className="absolute bottom-14 left-4 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50 py-2"
-                        >
-
+                        <div ref={modalRef} className="nexus-attachment-modal">
                             <button
                                 onClick={() => handleAttachmentClick('image')}
-                                className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-
+                                className="modal-option"
                             >
-                                <Image size={20} className="text-green-500" />
-                                <span className="text-sm text-gray-700 dark:text-gray-300">Image</span>
+                                <Image size={20} className="modal-icon-image" />
+                                <span>Image</span>
                             </button>
-
-
 
                             <button
                                 onClick={() => handleAttachmentClick('pdf')}
-                                className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-
+                                className="modal-option"
                             >
-                                <FileText size={20} className="text-red-500" />
-                                <span className="text-sm text-gray-700 dark:text-gray-300">Document</span>
+                                <FileText size={20} className="modal-icon-pdf" />
+                                <span>Document</span>
                             </button>
-
                         </div>
                     )}
 
                     <button
                         onClick={() => setShowAttachmentModal(!showAttachmentModal)}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors flex-shrink-0"
+                        className="attachment-btn"
                         disabled={uploading}
                     >
-                        <Paperclip size={20} className="text-gray-600 dark:text-gray-400" />
+                        <Paperclip size={20} />
                     </button>
 
-                    <div className="flex-1 relative">
+                    <div className="nexus-input-wrapper">
                         <input
                             type="text"
-                            placeholder="Type a message..."
+                            placeholder="Message Nexus AI..."
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
                             onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
-                            className="w-full px-4 py-3 outline-none bg-inherit text-gray-900 dark:text-white rounded-full focus:outline-none focus:ring-0 "
+                            className="nexus-message-input"
                         />
-
                     </div>
+
                     <button
                         onClick={handleSendMessage}
                         disabled={!message?.trim() || isResponding || isLoading}
-                        className={`
-                            p-3 rounded-full transition-all duration-200 flex-shrink-0 
-                            flex items-center justify-center
-                            w-12 h-12 
-                            ${!message?.trim() || isResponding || isLoading
-                                ? 'bg-blue-400 cursor-not-allowed opacity-70'
-                                : 'bg-blue-500 hover:bg-blue-600'
-                            }
-                        `}
+                        className={`nexus-send-btn ${!message?.trim() || isResponding}`}
                     >
                         {isLoading ? (
-                            // Loader/Spinner
-                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                            <div className="send-loader"></div>
                         ) : isResponding ? (
-                            // Blinking Square - Fixed size
-                            <div className="h-5 w-5 bg-white animate-pulse rounded-sm flex-shrink-0"></div>
+                            <div className="send-pulse"></div>
                         ) : (
-                            <Send size={20} className="text-white flex-shrink-0" />
+                            <Send size={19} />
                         )}
                     </button>
                 </div>

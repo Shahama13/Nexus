@@ -4,6 +4,7 @@ export const useRealTime = create((set) => ({
 
     unreadByChat: {},
     lastMessage: {},
+    allChats: [],
 
     addLastMessage: ({ chatId, content, sender }) =>
         set((state) => (
@@ -30,6 +31,11 @@ export const useRealTime = create((set) => ({
                 unreadByChat: { ...rest }
             }
 
-        })
+        }),
+
+    setAllChats: (chats) =>
+        set((state) => ({
+            allChats: chats
+        })),
 }))
 

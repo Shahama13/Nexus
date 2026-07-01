@@ -1,0 +1,418 @@
+@import "./variables.scss";
+
+.details-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.details-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(31, 41, 55, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+// ── Panel ─────────────────────────
+.details-modal {
+  position: relative;
+  background: $card-bg;
+  width: 100%;
+  max-width: 420px;
+  height: 100%;
+  overflow-y: auto;
+  box-shadow: -12px 0 32px rgba(88, 101, 242, 0.14);
+}
+
+.details-close-btn {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: $muted-text;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: $sidebar-bg;
+    color: $primary-text;
+  }
+}
+
+// ── Group summary ─────────────────────────
+.group-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 24px 24px;
+}
+
+.group-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #6366F1, $primary-blue);
+  color: #FFFFFF;
+  margin-bottom: 16px;
+}
+
+.group-name {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  color: $primary-text;
+}
+
+.group-meta {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: $muted-text;
+}
+
+// ── Participants ─────────────────────────
+.participants-section {
+  padding: 0 24px 24px;
+}
+
+.participants-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: $primary-text;
+
+  h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+  }
+}
+
+.participants-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.participant-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: $main-bg;
+  border: 1px solid $border-color;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.participant-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.participant-avatar {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $light-blue-bg;
+  color: $primary-blue;
+}
+
+.participant-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.participant-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: $primary-text;
+}
+
+.admin-badge {
+  background: $success-green-bg;
+  color: #16A34A;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.participant-email {
+  margin: 1px 0 0;
+  font-size: 12.5px;
+  color: $muted-text;
+}
+
+.remove-btn {
+  border: none;
+  background: $danger-red;
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    background: $danger-red-hover;
+  }
+}
+
+// ── Admin actions ─────────────────────────
+.admin-actions {
+  padding: 0 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.add-participant-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  background: $primary-blue;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 13px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 6px 16px $box-shadow;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: $hover-blue;
+  }
+}
+
+.delete-group-btn {
+  width: 100%;
+  border: 1px solid $danger-red-border;
+  background: $card-bg;
+  color: $danger-red;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 13px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: $danger-red-bg;
+  }
+}
+
+// ── Add participants view ─────────────────────────
+.add-participants-view {
+  padding: 48px 24px 24px;
+}
+
+.add-participants-title {
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 600;
+  color: $primary-text;
+}
+
+.add-participants-subtitle {
+  margin: 0 0 20px;
+  font-size: 13px;
+  color: $muted-text;
+}
+
+.details-search-wrapper {
+  position: relative;
+  margin-bottom: 16px;
+
+  .details-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: $muted-text;
+    pointer-events: none;
+  }
+}
+
+.details-search-input {
+  width: 100%;
+  background: $main-bg;
+  border: 1px solid $border-color;
+  border-radius: 12px;
+  padding: 11px 16px 11px 40px;
+  font-size: 14px;
+  color: $primary-text;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &::placeholder {
+    color: $muted-text;
+  }
+
+  &:focus {
+    border-color: $primary-blue;
+    box-shadow: 0 0 0 3px $light-blue-bg;
+  }
+}
+
+.selected-count {
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: $primary-blue;
+}
+
+.available-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 384px;
+  overflow-y: auto;
+}
+
+.available-users-empty {
+  text-align: center;
+  padding: 32px 0;
+  color: $muted-text;
+  font-size: 13px;
+}
+
+.available-user-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  background: $main-bg;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: $sidebar-bg;
+  }
+
+  &.selected {
+    background: $light-blue-bg;
+    border-color: $primary-blue;
+  }
+}
+
+.selected-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: $primary-blue;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  .check-icon {
+    width: 12px;
+    height: 12px;
+    color: #FFFFFF;
+  }
+}
+
+// ── Add participants actions ─────────────────────────
+.add-participants-actions {
+  position: sticky;
+  bottom: 0;
+  background: $card-bg;
+  padding: 16px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid $border-color;
+}
+
+.add-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  background: $primary-blue;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 13px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 6px 16px $box-shadow;
+  transition: background 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: $hover-blue;
+  }
+
+  &:disabled {
+    background: $sidebar-bg;
+    color: $muted-text;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+}
+
+.cancel-add-btn {
+  width: 100%;
+  border: 1px solid $border-color;
+  background: $card-bg;
+  color: $secondary-text;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 13px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: $sidebar-bg;
+  }
+}
+
+// In your DetailsModal.scss, update the participant-avatar styles:
+
+.participant-avatar {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-weight: 600;
+  font-size: 16px;
+  text-transform: uppercase;
+  // Remove the old background and color overrides
+}

@@ -1,0 +1,50 @@
+// ── Core Color Variables ─────────────────────────
+$primary-blue: #5865F2;
+$hover-blue: #4752C4;
+$light-blue-bg: #EEF0FF;
+$main-bg: #F7F8FC;
+$sidebar-bg: #F1F3FF;
+$card-bg: #FFFFFF;
+$border-color: #DDE3FF;
+$primary-text: #1F2937;
+$secondary-text: #6B7280;
+$muted-text: #9CA3AF;
+$success-green: #22C55E;
+$success-green-bg: #DCFCE7;
+$box-shadow: #C7D2FE;
+$pdf-red: #e0524b;
+$danger-red: #EF4444;
+$danger-red-hover: #DC2626;
+$danger-red-bg: #FEF2F2;
+$danger-red-border: #FECACA;
+
+// ── Sidebar-specific gradient tokens ─────────────
+$sidebar-grad-start: #4E42E0;
+$sidebar-grad-end: #3E35C9;
+$white: #FFFFFF;
+$white-08: rgba(255, 255, 255, 0.08);
+$white-12: rgba(255, 255, 255, 0.14);
+$white-20: rgba(255, 255, 255, 0.22);
+$white-70: rgba(255, 255, 255, 0.75);
+$white-55: rgba(255, 255, 255, 0.6);
+
+// ── UI Element Specific Colors ────────────────────
+$search-bg: #e2e5ec;
+$divider-color: #F1F1F4;
+
+// ── Border Radius Tokens ──────────────────────────
+$radius-lg: 20px;
+$radius-md: 14px;
+$radius-sm: 10px;
+$radius-pill: 999px;
+
+// ── Shadow Tokens ─────────────────────────────────
+$shadow-soft: 0 2px 10px rgba($box-shadow, 0.35);
+$shadow-card: 0 6px 20px rgba($box-shadow, 0.5);
+
+$search-bg: #e2e5ec;
+$divider-color: #F1F1F4;
+
+$danger-red: #EF4444;
+$danger-red-bg: #FEF2F2;
+$danger-red-border: #FECACA;
