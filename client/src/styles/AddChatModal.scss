@@ -1,0 +1,381 @@
+@import "./variables.scss";
+
+// ── Overlay ─────────────────────────
+.add-chat-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.add-chat-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(31, 41, 55, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+// ── Modal ─────────────────────────
+.add-chat-modal {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: $card-bg;
+  border: 1px solid $border-color;
+  border-radius: 20px;
+  box-shadow: 0 20px 48px rgba(88, 101, 242, 0.18);
+}
+
+// ── Header ─────────────────────────
+.add-chat-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px;
+  border-bottom: 1px solid $border-color;
+  flex-shrink: 0;
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .header-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: $light-blue-bg;
+    color: $primary-blue;
+    flex-shrink: 0;
+  }
+
+  .header-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    color: $primary-text;
+  }
+
+  .header-subtitle {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: $muted-text;
+  }
+
+  .close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    padding: 6px;
+    border-radius: 8px;
+    color: $muted-text;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+
+    &:hover {
+      background: $sidebar-bg;
+      color: $primary-text;
+    }
+  }
+}
+
+// ── Body ─────────────────────────
+.add-chat-modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+// ── Toggle ─────────────────────────
+.chat-type-toggle {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  background: $sidebar-bg;
+  border-radius: 12px;
+}
+
+.toggle-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: $secondary-text;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: $primary-text;
+  }
+
+  &.active {
+    background: $primary-blue;
+    color: #FFFFFF;
+    font-weight: 600;
+    box-shadow: 0 6px 16px $box-shadow;
+  }
+}
+
+// ── Fields / Inputs ─────────────────────────
+.field {
+  display: flex;
+  flex-direction: column;
+}
+
+.field-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: $primary-text;
+  margin-bottom: 8px;
+}
+
+.text-input {
+  width: 100%;
+  background: $main-bg;
+  border: 1px solid $border-color;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: $primary-text;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &::placeholder {
+    color: $muted-text;
+  }
+
+  &:focus {
+    border-color: $primary-blue;
+    box-shadow: 0 0 0 3px $light-blue-bg;
+  }
+
+  &.with-icon {
+    padding-left: 40px;
+  }
+}
+
+.search-input-wrapper {
+  position: relative;
+  margin-bottom: 12px;
+
+  .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: $muted-text;
+    pointer-events: none;
+  }
+}
+
+// ── User List ─────────────────────────
+.user-list {
+  background: $card-bg;
+  border: 1px solid $border-color;
+  border-radius: 12px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.user-list-empty {
+  padding: 32px;
+  text-align: center;
+  color: $muted-text;
+  font-size: 13px;
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  cursor: pointer;
+  border-bottom: 1px solid $sidebar-bg;
+  transition: background 0.15s ease;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: $main-bg;
+  }
+
+  &.selected {
+    background: $light-blue-bg;
+  }
+}
+
+.user-avatar {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #6366F1, $primary-blue);
+  color: #FFFFFF;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.user-details {
+  flex: 1;
+  min-width: 0;
+
+  .user-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: $primary-text;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .user-email {
+    font-size: 12px;
+    color: $muted-text;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.user-checkbox {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 2px solid $border-color;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+
+  &.checked {
+    background: $primary-blue;
+    border-color: $primary-blue;
+  }
+
+  .check-icon {
+    width: 12px;
+    height: 12px;
+    color: #FFFFFF;
+  }
+}
+
+// ── Selected Participants ─────────────────────────
+.selected-participants {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.selected-participants-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: $secondary-text;
+}
+
+.selected-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.selected-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: $sidebar-bg;
+  border: 1px solid $border-color;
+  border-radius: 999px;
+  padding: 4px 12px 4px 4px;
+
+  .chip-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #6366F1, $primary-blue);
+    color: #FFFFFF;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .chip-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: $primary-text;
+  }
+
+  .chip-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: $muted-text;
+    cursor: pointer;
+    padding: 0;
+
+    &:hover {
+      color: $primary-text;
+    }
+  }
+}
+
+// ── Create Button ─────────────────────────
+.create-btn {
+  width: 100%;
+  border: none;
+  background: $primary-blue;
+  color: #FFFFFF;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 20px $box-shadow;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: $hover-blue;
+  }
+
+  &:disabled {
+    background: $sidebar-bg;
+    color: $muted-text;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+}

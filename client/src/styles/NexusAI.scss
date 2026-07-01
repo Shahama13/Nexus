@@ -1,0 +1,751 @@
+@import "./variables.scss";
+
+@mixin spin {
+    animation: nexus-spin 0.7s linear infinite;
+}
+
+@keyframes nexus-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+// ---- Root ----
+.nexus-ai {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100%;
+    background: $main-bg;
+    color: $primary-text;
+}
+
+// ---- Header ----
+.nexus-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: $card-bg;
+    border-bottom: 1px solid $border-color;
+    padding: 14px 24px;
+
+    .nexus-header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .nexus-avatar {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        background: #5c5bed;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .nexus-header-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .nexus-title-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        h2 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            color: $primary-text;
+        }
+    }
+
+    .nexus-badge {
+        background: $light-blue-bg;
+        color: $primary-blue;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 10px;
+        border-radius: $radius-pill;
+    }
+
+    .nexus-tagline {
+        margin: 0;
+        font-size: 12.5px;
+        color: $secondary-text;
+    }
+
+    .nexus-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .icon-btn {
+        width: 36px;
+        height: 36px;
+        border: none;
+        background: transparent;
+        color: $secondary-text;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
+
+        &:hover {
+            background: $sidebar-bg;
+            color: $primary-blue;
+        }
+    }
+}
+
+// ---- Messages area ----
+.nexus-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 26px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.08);
+        border-radius: $radius-pill;
+    }
+}
+
+.nexus-loading {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0;
+}
+
+.nexus-spinner {
+    width: 22px;
+    height: 22px;
+    border: 2.5px solid $light-blue-bg;
+    border-top-color: $primary-blue;
+    border-radius: 50%;
+    @include spin;
+}
+
+// date divider ("Today")
+.date-divider {
+    align-self: center;
+
+    span {
+        background: $card-bg;
+        color: $secondary-text;
+        font-size: 12px;
+        font-weight: 500;
+        padding: 6px 16px;
+        border-radius: $radius-pill;
+        box-shadow: $shadow-soft;
+    }
+}
+
+// ---- Message row ----
+.nexus-message-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+
+    &.own {
+        justify-content: flex-end;
+    }
+
+    &.other {
+        justify-content: flex-start;
+    }
+}
+
+.nexus-message-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: $light-blue-bg;
+    color: $primary-blue;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.nexus-message-col {
+    display: flex;
+    flex-direction: column;
+    max-width: 68%;
+
+    &.own {
+        align-items: flex-end;
+    }
+
+    &.other {
+        align-items: flex-start;
+    }
+}
+
+.nexus-sender-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: $secondary-text;
+    margin-bottom: 4px;
+    padding: 0 4px;
+}
+
+// ---- Attachments rendered above bubble ----
+.nexus-attachments {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.nexus-attachment-image {
+        max-width: 260px;
+    border-radius: 14px;
+    cursor: pointer;
+    padding: 0.5rem;
+    transition: opacity 0.15s ease;
+    background: #5865f2;
+
+    &:hover {
+        opacity: 0.9;
+    }
+}
+
+.nexus-attachment-file {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: $card-bg;
+    border-radius: $radius-md;
+    cursor: pointer;
+    box-shadow: $shadow-soft;
+    min-width: 220px;
+    transition: background 0.15s ease;
+
+    &:hover {
+        background: $sidebar-bg;
+    }
+
+    .file-icon {
+        color: $pdf-red;
+        flex-shrink: 0;
+    }
+
+    .file-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .file-name {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: $primary-text;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .file-meta {
+        margin: 2px 0 0;
+        font-size: 11.5px;
+        color: $secondary-text;
+    }
+
+    .file-external {
+        color: $muted-text;
+        flex-shrink: 0;
+    }
+}
+
+// ---- Message bubble ----
+.nexus-bubble {
+    position: relative;
+    padding: 12px 16px 10px;
+    border-radius: $radius-lg;
+    font-size: 14.5px;
+    line-height: 1.5;
+    box-shadow: $shadow-soft;
+    word-wrap: break-word;
+
+    &.own {
+        background: #5865f2;
+        color: $card-bg;
+        border-top-right-radius: 4px;
+    }
+
+    &.other {
+        background: #eef0ff;
+        border: 1px solid $divider-color;
+        color: $primary-text;
+        border-top-left-radius: 4px;
+        min-width: 260px;
+    }
+}
+
+.nexus-bubble-text {
+    .md-ul {
+        margin: 6px 0;
+        padding-left: 18px;
+        list-style-type: disc; // or 'circle' or 'square'
+        list-style-position: outside;
+    }
+
+    .md-li {
+        margin: 3px 0;
+        font-size: 14px;
+        color: $primary-text;
+        list-style-type: disc; // or 'circle' or 'square'
+        list-style-position: outside;
+    }
+
+    .md-strong {
+        font-weight: 900;
+         color: $primary-text;
+    }
+
+    .md-p {
+        margin: 4px 0;
+        font-size: 14px;
+        line-height: 1.55;
+    }
+
+    .md-h1 {
+        // font-size: 16px;
+        font-weight: 700;
+        margin: 8px 0 4px;
+         color: $primary-text;
+    }
+
+    .md-h2 {
+        font-size: 14.5px;
+        font-weight: 700;
+        margin: 8px 0 4px;
+        color: $primary-text;
+    }
+}
+
+.nexus-bubble-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+
+
+    &.own {
+        justify-content: flex-end;
+    }
+
+    &.other {
+        justify-content: flex-end;
+    }
+
+    .nexus-time {
+        font-size: 11px;
+
+        &.own {
+            color: $card-bg;
+        }
+
+        &.other {
+            color: $muted-text;
+        }
+
+    }
+
+    .nexus-read-icon {
+        color: $primary-blue;
+    }
+}
+
+// ---- AI message footer: Copy / Open in chat / feedback ----
+.nexus-bubble-footer {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid $divider-color;
+
+    .footer-action {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        border: none;
+        background: transparent;
+        font-size: 12.5px;
+        color: $secondary-text;
+        cursor: pointer;
+        padding: 0;
+        transition: color 0.15s ease;
+
+        &:hover {
+            color: $primary-blue;
+        }
+    }
+
+    .footer-spacer {
+        flex: 1;
+    }
+
+    .footer-icon-btn {
+        border: none;
+        background: transparent;
+        color: $secondary-text;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2px;
+        transition: color 0.15s ease;
+
+        &:hover {
+            color: $primary-blue;
+        }
+    }
+}
+
+// ---- Typing indicator ----
+.nexus-typing-bubble {
+    background: $card-bg;
+    border: 1px solid $divider-color;
+    padding: 14px 18px;
+    border-radius: $radius-lg;
+    border-top-left-radius: 4px;
+    box-shadow: $shadow-soft;
+}
+
+.nexus-typing-dots {
+    display: flex;
+    gap: 4px;
+
+    span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: $muted-text;
+        animation: nexus-typing-bounce 1.2s infinite ease-in-out;
+
+        &:nth-child(2) {
+            animation-delay: 0.15s;
+        }
+
+        &:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+    }
+}
+
+@keyframes nexus-typing-bounce {
+
+    0%,
+    60%,
+    100% {
+        transform: translateY(0);
+        opacity: 0.5;
+    }
+
+    30% {
+        transform: translateY(-4px);
+        opacity: 1;
+    }
+}
+
+// ---- Quick action chips ----
+.nexus-quick-actions {
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 0 26px 16px;
+    background: $main-bg;
+}
+
+.quick-action-chip {
+    border: 1px solid $divider-color;
+    background: $card-bg;
+    color: $hover-blue;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 9px 16px;
+    border-radius: $radius-pill;
+    cursor: pointer;
+    box-shadow: $shadow-soft;
+    transition: background 0.15s ease, transform 0.1s ease;
+
+    &:hover {
+        background: $sidebar-bg;
+        transform: translateY(-1px);
+    }
+}
+
+// ==========================================================================
+// Input area
+// ==========================================================================
+.nexus-input-container {
+    flex-shrink: 0;
+    background: $card-bg;
+    margin: 0 16px 16px;
+    border-radius: $radius-lg;
+    box-shadow: $shadow-card;
+    padding: 10px 0;
+}
+
+.nexus-attachments-preview {
+    padding: 0 20px 10px;
+
+    .attachments-preview-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 10px;
+        background: $main-bg;
+        border-radius: $radius-md;
+    }
+}
+
+.attachment-preview-item {
+    position: relative;
+
+    .preview-image {
+        width: 72px;
+        height: 72px;
+        object-fit: cover;
+        border-radius: $radius-md;
+        
+    }
+
+    .preview-file {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: $card-bg;
+        border-radius: $radius-md;
+
+        .file-icon {
+            color: $pdf-red;
+        }
+
+        .file-name {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 600;
+            max-width: 140px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-meta {
+            margin: 2px 0 0;
+            font-size: 11px;
+            color: $secondary-text;
+        }
+    }
+
+    .preview-remove-btn {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        width: 20px;
+        height: 20px;
+        border: none;
+        border-radius: 50%;
+        background: $pdf-red;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+
+    &:hover .preview-remove-btn {
+        opacity: 1;
+    }
+}
+
+.nexus-input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    position: relative;
+}
+
+.attachment-btn {
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: transparent;
+    color: $secondary-text;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease, color 0.15s ease;
+
+    &:hover:not(:disabled) {
+        background: $sidebar-bg;
+        color: $primary-blue;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+// ---- Attachment modal ----
+.nexus-attachment-modal {
+    position: absolute;
+    bottom: 54px;
+    left: 12px;
+    background: $card-bg;
+    border-radius: $radius-md;
+    box-shadow: $shadow-card;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 20;
+    min-width: 160px;
+
+    .modal-option {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: none;
+        background: transparent;
+        padding: 9px 10px;
+        border-radius: 10px;
+        font-size: 13.5px;
+        color: $primary-text;
+        cursor: pointer;
+        text-align: left;
+
+        &:hover {
+            background: $sidebar-bg;
+        }
+    }
+
+    .modal-icon-image {
+        color: $success-green;
+    }
+
+    .modal-icon-pdf {
+        color: $pdf-red;
+    }
+}
+
+// ---- Input field ----
+.nexus-input-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    padding: 4px 4px;
+}
+
+.nexus-message-input {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 14.5px;
+    color: $primary-text;
+    width: 100%;
+    padding: 0;
+
+    &::placeholder {
+        color: $secondary-text;
+    }
+}
+
+.nexus-input-hint {
+    font-size: 12px;
+    color: $muted-text;
+    margin-top: 2px;
+}
+
+// ---- Send button ----
+.nexus-send-btn {
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease, transform 0.1s ease;
+    box-shadow: 0 4px 12px rgba(108, 92, 233, 0.35);
+    background: #5865f2;
+
+    svg {
+        transform: translateX(-1px);
+    }
+
+    &:hover:not(.disabled) {
+        transform: translateY(-1px);
+    }
+
+    &.disabled {
+        background: $light-blue-bg;
+        color: $muted-text;
+        cursor: not-allowed;
+        box-shadow: none;
+    }
+
+    .send-loader {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        border-top-color: #fff;
+        border-radius: 50%;
+        @include spin;
+    }
+
+    .send-pulse {
+        width: 14px;
+        height: 14px;
+        background: #fff;
+        border-radius: 3px;
+        animation: nexus-pulse 1s infinite ease-in-out;
+    }
+}
+
+@keyframes nexus-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+}

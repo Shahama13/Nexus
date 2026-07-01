@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react'
-import { Search, Plus, EllipsisVertical } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Search, SlidersHorizontal, Plus, Sparkles, Users, Archive } from 'lucide-react'
 import { useUIStore } from '../../store/uiStore'
 import { getMyChats } from '../../services/chat'
 import { useSocket } from '../../socket'
@@ -7,14 +7,50 @@ import { useRealTime } from '../../store/realTime'
 import { useAuth } from '../../store/auth'
 import { useSocketEvents } from '../../hooks/useSocketEvents'
 import { LEAVE_CHAT_EVENT, NEW_CHAT_EVENT, NEW_MESSAGE_ALERT } from '../../constants/events'
+import '../../styles/ChatList.scss'
+
+// Cycled palette for group / DM avatar backgrounds (purely cosmetic)
+const AVATAR_COLORS = ['#6C63FF', '#A78BFA', '#F472B6', '#FB923C', '#38BDF8', '#34D399', '#FACC15']
+
+function getAvatarColor(id = '') {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+}
+
+function formatTime(dateStr) {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return ''
+
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const diffDays = Math.round((startOfToday - startOfDate) / 86400000)
+
+  if (diffDays === 0) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays > 1 && diffDays < 7) return date.toLocaleDateString([], { weekday: 'short' })
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+
+const TABS = [
+  { id: 'all', label: 'All' },
+  { id: 'unread', label: 'Unread' },
+  { id: 'groups', label: 'Groups' },
+  { id: 'dms', label: 'DMs' },
+]
 
 export default function ChatList() {
   const { activeChat, setActiveChat, setRightView, setIsAddChatModalOpen, setIsDetailsModalOpen, setChatDetailId, chatDetailId } = useUIStore()
-  const { unreadByChat, removeUnread, addUnread, addLastMessage, lastMessage } = useRealTime()
+  const { unreadByChat, removeUnread, addUnread, addLastMessage, lastMessage, setAllChats } = useRealTime()
   const { user } = useAuth()
   const socket = useSocket()
 
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeTab, setActiveTab] = useState('all')
   const [chats, setChats] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -28,19 +64,14 @@ export default function ChatList() {
             title: chat.isGroupChat ? chat.name : otherUser?.name || "Chat",
             isChatBot: chat.name === "Nexus AI"
           }
-        }
-        )
-
+        })
 
         const aiChat = mappedChats.filter(c => c.isChatBot === true)
         const regularChats = mappedChats.filter(c => !c.isChatBot)
         const sortedByAiChatFirst = [...aiChat, ...regularChats]
 
-
         setChats(sortedByAiChatFirst)
-
-        console.log(sortedByAiChatFirst, "sortedByAiChatFirst")
-
+        setAllChats(sortedByAiChatFirst)
         setLoading(false)
       })
       .catch(err => {
@@ -49,14 +80,16 @@ export default function ChatList() {
       })
   }, [])
 
-  const filteredChats = chats.filter((chat) => {
-
-    return chat?.title?.toLowerCase().includes(searchQuery.toLowerCase())
-  })
+  const filteredChats = chats
+    .filter((chat) => chat?.title?.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter((chat) => {
+      if (activeTab === 'unread') return unreadByChat[chat._id] > 0
+      if (activeTab === 'groups') return chat.isGroupChat
+      if (activeTab === 'dms') return !chat.isGroupChat
+      return true
+    })
 
   const newChatEventHandler = (data) => {
-
-    // Format the new chat
     const otherUser = data?.participants?.find(c => c._id !== user._id);
     const formattedChat = {
       ...data,
@@ -64,17 +97,14 @@ export default function ChatList() {
       isChatBot: data.name === "Nexus AI"
     }
 
-    // Add to list and re-sort
     setChats(prev => {
       const newChats = [formattedChat, ...prev]
-
-      // Sort: AI chats first, then regular chats
       const aiChats = newChats.filter(c => c.isChatBot === true)
       const regularChats = newChats.filter(c => !c.isChatBot)
-
       return [...aiChats, ...regularChats]
     })
   }
+
   const newMessageAlertHandler = ({ chatId, sender, content }) => {
     if (activeChat?._id.toString() !== chatId.toString() && sender._id.toString() !== user._id.toString()) {
       addUnread(chatId)
@@ -117,67 +147,104 @@ export default function ChatList() {
   const handleNewChat = () => setIsAddChatModalOpen(true)
 
   return (
-    <div className="w-full h-screen bg-gray-50 dark:bg-slate-900 flex flex-col">
-      <div className="p-4 flex items-center gap-3">
-        <div className="flex-1 relative">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500 " />
-          <input
-            type="text"
-            placeholder="Search"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg pl-10 pr-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600"
-          />
-        </div>
+    <div className="chat-list-container">
 
-        <button
-          onClick={handleNewChat}
-          className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2.5 text-sm font-medium flex items-center gap-2 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
-        >
-          <Plus size={18} />
-          Add chat
+      {/* Search */}
+      <div className="search-wrapper">
+        <Search size={16} className="search-icon" />
+        <input
+          type="text"
+          placeholder="Search conversations..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="search-input"
+        />
+        <button type="button" className="filter-icon-btn" aria-label="Filter options">
+          <SlidersHorizontal size={15} />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      {/* Tabs */}
+      <div className="chat-tabs">
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            className={`chat-tab ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Chat List */}
+      <div className="chat-list-body">
         {loading && (
-          <p className="py-8 text-gray-500 dark:text-slate-400 text-sm text-center">
-            Loading chats…
-          </p>
+          <p className="empty-state">Loading chats…</p>
         )}
 
         {!loading && filteredChats.length === 0 && (
-          <p className="py-8 text-gray-500 dark:text-slate-400 text-sm text-center">
-            No chats found
-          </p>
+          <p className="empty-state">No chats found</p>
         )}
 
-        <div className="space-y-2">
+        <div className="chat-items">
           {filteredChats.map(chat => {
-
             const avatarChar = chat.title?.charAt(0)?.toUpperCase() || "C"
             const isBot = chat.name === "Nexus AI"
+            const lastMsg = lastMessage[chat._id] || chat.lastMessage
+            const timeLabel = formatTime(lastMsg?.createdAt || chat.updatedAt)
+            const unreadCount = unreadByChat[chat._id]
 
             return (
               <div
                 key={chat._id}
                 onClick={(e) => {
                   if (e.target.closest('.ellipsis-button')) return
+                
                   setActiveChat({ ...chat, name: chat.title })
                   if (isBot) return setRightView("Nexus_AI")
                   removeUnread(chat._id)
                   setRightView('CHAT_HISTORY')
                 }}
-                className={`group relative flex items-center gap-3 p-3 pr-12 rounded-xl cursor-pointer transition-all ${activeChat?._id === chat._id
-                  ? 'bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-slate-700'
-                  : 'bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-blue-500/10 dark:hover:bg-slate-750'
-                  }`}
+                className={`chat-item ${activeChat?._id === chat._id ? 'active' : ''}`}
               >
-                {/* Ellipsis is ALWAYS rendered, absolutely positioned, and only fades in on hover */}
-                {chat.isGroupChat && (
+                <div
+                  className={`avatar ${isBot ? 'bot-avatar' : ''}`}
+                  style={!isBot ? { background: getAvatarColor(chat._id) } : undefined}
+                >
+                  {isBot ? <Sparkles size={17} /> : chat.isGroupChat ? <Users size={17} /> : avatarChar}
+                </div>
+
+
+                <div className="chat-info">
+                  <h3 className="chat-title">{chat.title}</h3>
+                  {lastMsg ? (
+                    <p className="chat-preview">
+                      {lastMsg.sender?._id === user._id ? "You:" : lastMsg.sender?.name + ":"}{" "}
+                      {lastMsg.attachments?.length > 0 ? (
+                        <span className="attachment-label">
+                          {lastMsg.attachments[0].attachmentType}
+                        </span>
+                      ) : (
+                        lastMsg.content
+                      )}
+                    </p>
+                  ) : (
+                    <p className="chat-preview">AI assistant</p>
+                  )}
+                </div>
+
+                <div className="chat-meta">
+                  {timeLabel && <span className="chat-time">{timeLabel}</span>}
+                  {unreadCount > 0 && (
+                    <span className="unread-badge">{unreadCount}</span>
+                  )}
+                </div>
+
+                {/* {chat.isGroupChat && (
                   <button
                     type="button"
-                    className="ellipsis-button absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md text-gray-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 hover:text-blue-600 dark:hover:text-blue-300 transition"
+                    className="ellipsis-button"
                     onClick={(e) => {
                       e.stopPropagation()
                       setIsDetailsModalOpen(true)
@@ -185,57 +252,22 @@ export default function ChatList() {
                     }}
                     aria-label="Open chat details"
                   >
-                    <EllipsisVertical size={18} />
+                    <Users size={13} />
                   </button>
-                )}
-
-                <div className="h-11 w-11 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-2xl flex-shrink-0">
-                  {!isBot ? avatarChar : "🤖"}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <h3 className="font-semibold text-gray-900 dark:text-white truncate text-sm">
-                      {chat.title}
-                    </h3>
-                    {unreadByChat[chat._id] > 0 && (
-                      <span className="ml-2 bg-blue-600 text-white text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0">
-                        {unreadByChat[chat._id]}
-                      </span>
-                    )}
-                  </div>
-
-                  {unreadByChat[chat._id] > 0 ? (
-                    <p className="text-xs text-gray-600 dark:text-slate-400 truncate">
-                      {unreadByChat[chat._id]} new {unreadByChat[chat._id] === 1 ? 'message' : 'messages'}
-                    </p>
-                  ) : lastMessage[chat._id] ? (
-                    <p className="text-xs text-gray-500 dark:text-slate-500 truncate">
-                      {lastMessage[chat._id].sender._id.toString() === user._id.toString()
-                        ? "You:"
-                        : lastMessage[chat._id].sender.name + ":"}{" "}
-                      {lastMessage[chat._id].content}
-
-                    </p>
-                  ) : (
-                    <p className="text-xs text-gray-500 dark:text-slate-500 truncate">
-                      {chat.lastMessage?.sender?._id === user._id
-                        ? "You:"
-                        : chat.isGroupChat && chat.lastMessage?.sender?.name
-                          ? chat.lastMessage.sender.name + ":"
-                          : ""}{" "}
-
-                      <span className='capitalize'>{chat.lastMessage?.attachments?.length > 0
-                        ? `${chat.lastMessage.attachments[0].attachmentType}`
-                        : ""}</span>   {chat.lastMessage?.content}
-                    </p>
-                  )}
-                </div>
+                )} */}
               </div>
             )
           })}
         </div>
+
+
       </div>
+
+      {/* Floating New Chat button (functionality preserved from original wide button) */}
+      <button className="new-chat-fab" onClick={handleNewChat} aria-label="New chat">
+        <Plus size={20} />
+      </button>
+
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Paperclip, Smile, Send, Image, Video, Music, FileText, X, Upload } from 'lucide-react'
+import { Paperclip, Smile, Send, Image, Video, Music, FileText, X, Upload, Sparkles, MoreVertical , Users } from 'lucide-react'
 import { useUIStore } from '../../store/uiStore'
 import { useSocket } from '../../socket'
 import { JOIN_CHAT_EVENT, TOGGLE_REACTION_EVENT, NEW_MESSAGE_EVENT, TYPING, USER_ONLINE_EVENT, USER_OFFLINE_EVENT, CHECK_ONLINE_EVENT } from '../../constants/events'
@@ -18,6 +18,7 @@ import { askAi } from '../../services/ai.js'
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { v4 as uuidv4 } from 'uuid';
+import '../../styles/ChatHistory.scss'
 
 const ChatHistory = () => {
   const [message, setMessage] = useState('')
@@ -42,11 +43,7 @@ const ChatHistory = () => {
   const [nexusMode, setNexusMode] = useState(false)
   const fileInputRef = useRef(null);
 
-
-
-
   const handleRemoveAttachment = (index) => {
-    // Revoke object URL to prevent memory leaks
     if (attachments[index]?.preview) {
       URL.revokeObjectURL(attachments[index].preview);
     }
@@ -60,7 +57,6 @@ const ChatHistory = () => {
   const typingRef = useRef(false)
   const timeoutId = useRef(null)
 
-  // Fetch chat details & initial messages
   useEffect(() => {
     if (!activeChat) return
     setOnline(false);
@@ -69,12 +65,24 @@ const ChatHistory = () => {
     setCurrentPage(1)
     setTotalPages(1)
     setTypingUsers(false)
-    setAttachments([]) // Clear attachments when chat changes
-    setCurrentReply(null) // Clear reply when chat changes
+    setAttachments([])
+    setCurrentReply(null)
     initialLoadRef.current = true
     fetchMessages(1, true)
     socket.emit(JOIN_CHAT_EVENT, activeChat._id)
   }, [activeChat._id, user._id])
+
+  useEffect(() => {
+    if (typingUsers) {
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "end",
+        });
+      });
+    }
+  }, [typingUsers]);
+
 
   const fetchMessages = async (page, initial = false) => {
     if (loading || page > totalPages) return
@@ -132,9 +140,7 @@ const ChatHistory = () => {
 
     const isAskingNexus = nexusMode
     const nexusQuery = nexusMode ? msg : null
-    const displayMsg = isAskingNexus ? `@nexus ${msg}` : msg  // add this
-
-
+    const displayMsg = isAskingNexus ? `@nexus ${msg}` : msg
 
     if (attachments.length > 0) {
       setUploading(true);
@@ -149,19 +155,6 @@ const ChatHistory = () => {
         if (currentReply) formData.append('threadId', currentReply.id);
 
         const response = await sendAttachments(formData);
-
-        const newMessage = response.data.message;
-        // flushSync(() => {
-        //   setMessages(prev => [
-        //     ...prev,
-        //     {
-        //       ...newMessage,
-        //       isOwn: true,
-        //       pending: false,
-        //     }
-        //   ]);
-        // });
-
         setMessage('');
         setAttachments([]);
         setCurrentReply(null);
@@ -212,7 +205,6 @@ const ChatHistory = () => {
         threadId: currentReply ? currentReply : null
       })
 
-
       if (isAskingNexus) {
         console.log("You are asking nexus", nexusQuery)
         const response = await askAi(nexusQuery, activeChat?._id)
@@ -238,10 +230,7 @@ const ChatHistory = () => {
               const data = JSON.parse(line.slice(6))
 
               if (data.token) {
-
-
                 result += data.token
-
                 console.log(result)
 
                 setMessages((prev) => {
@@ -270,12 +259,10 @@ const ChatHistory = () => {
                     }
                   ]
                 })
-
               }
 
               if (data.done) {
                 console.log("Stream finished")
-
                 socket.emit(NEW_MESSAGE_EVENT, {
                   chatId: activeChat._id,
                   content: result,
@@ -286,13 +273,9 @@ const ChatHistory = () => {
             }
           }
         }
-
       }
 
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-
-      console.log(currentReply, "currentReply")
-
       setCurrentReply(null)
 
       if (typingRef.current) {
@@ -312,15 +295,14 @@ const ChatHistory = () => {
 
     flushSync(() => {
       setMessages(prev => {
-        // If this is a temp message being replaced
         if (message.tempId) {
           const tempIndex = prev.findIndex(m => m.id === message.tempId);
           if (tempIndex !== -1) {
             const updatedMessages = [...prev];
             updatedMessages[tempIndex] = {
               ...message,
-              id: message.id, // Use real ID from server
-              tempId: undefined, // Remove tempId
+              id: message.id,
+              tempId: undefined,
               isOwn: message.sender._id === user._id,
               pending: false,
               reactions: message.reactions || {}
@@ -329,11 +311,9 @@ const ChatHistory = () => {
           }
         }
 
-        // Check if message already exists by real ID
         const exists = prev.find(m => m.id === message.id);
         if (exists) return prev;
 
-        // Add new message (not a temp replacement)
         return [
           ...prev,
           {
@@ -364,9 +344,6 @@ const ChatHistory = () => {
 
     setMessages(prev =>
       prev.map(m => {
-        // Check if this message matches by EITHER:
-        // 1. The real ID (m.id === data.messageId)
-        // 2. The temp ID (if the message hasn't been replaced yet)
         const matches =
           m.id.toString() === data.messageId.toString() ||
           (m.tempId && m.tempId.toString() === data.messageId.toString());
@@ -375,9 +352,8 @@ const ChatHistory = () => {
           return {
             ...m,
             reactions: data.reactions,
-            // If this was a temp message, update its ID to the real one
             id: data.messageId,
-            tempId: undefined // Remove tempId once replaced
+            tempId: undefined
           };
         }
         return m;
@@ -418,7 +394,7 @@ const ChatHistory = () => {
       setMessage(val)
     } else if (val.toLowerCase().startsWith('@nexus')) {
       setNexusMode(true)
-      setMessage(val.slice(6).trimStart()) // strip @nexus
+      setMessage(val.slice(6).trimStart())
     } else {
       setMessage(val)
     }
@@ -464,7 +440,6 @@ const ChatHistory = () => {
     return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (typingRef.current) {
@@ -474,7 +449,6 @@ const ChatHistory = () => {
         })
       }
       clearTimeout(timeoutId.current)
-      // Cleanup attachment previews
       attachments.forEach(att => {
         if (att.preview) URL.revokeObjectURL(att.preview);
       });
@@ -494,50 +468,60 @@ const ChatHistory = () => {
   }, [activeChat?._id, socket, user._id]);
 
   return (
-    <div
-      style={{
-        backgroundImage: "url('/back.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "center"
-      }}
-      className="flex-1 flex flex-col h-screen bg-cover bg-center"
-    >
+    <div className="chat-history">
       {/* Header */}
-      <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
-        <div className="flex items-center gap-3 cursor-pointer">
-          <div className="relative">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-lg font-semibold">
-              {activeChat?.name?.charAt(0).toUpperCase()}
-            </div>
-            {online && (
-              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></div>
-            )}
+      {/* Header */}
+      <div className="chat-header">
+        <div className="chat-header-left">
+          <div className="chat-avatar">
+            {activeChat.isGroupChat ?
+              <Users size={18} />
+              : activeChat?.name?.charAt(0).toUpperCase()}
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{activeChat?.name}</h2>
+          <div className="chat-header-info">
+            <h2>{activeChat?.name}</h2>
             {!activeChat?.isGroupChat && (
               online ? (
-                <p className="text-sm text-green-600 dark:text-green-400">Online</p>
+                <p className="online-status">Online</p>
               ) : lastSeen ? (
-                <p className="text-sm text-gray-600 dark:text-gray-400">Last seen {moment(lastSeen).fromNow()}</p>
+                <p className="last-seen">Last seen {moment(lastSeen).fromNow()}</p>
               ) : (
-                <p className="text-sm text-gray-600 dark:text-gray-400">Offline</p>
+                <p className="last-seen">Offline</p>
               )
+            )}
+            {activeChat?.isGroupChat && (
+              <p className="group-info">Group • {activeChat?.participants?.length || 0} members</p>
             )}
           </div>
         </div>
+
+        {activeChat?.isGroupChat && (
+          <div className="chat-header-right">
+            <button
+              type="button"
+              className="group-details-btn"
+              onClick={() => {
+                useUIStore.getState().setIsDetailsModalOpen(true);
+                useUIStore.getState().setChatDetailId(activeChat._id);
+                
+              }}
+              aria-label="Open chat details"
+            >
+              <MoreVertical  size={18} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Messages Area */}
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-6 py-4 space-y-4 pb-0"
-        style={{ scrollbarWidth: 'thin' }}
+        className="chat-messages"
       >
         {loading && currentPage > 1 && (
-          <div className="flex justify-center py-2">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+          <div className="chat-loading">
+            <div className="chat-spinner"></div>
           </div>
         )}
 
@@ -552,160 +536,145 @@ const ChatHistory = () => {
           const isQuickOpen = showEmojiPicker === item.id;
           const isNexusAi = item.sender.name === "Nexus AI"
 
-          const startsWithNexus = item.text.toLowerCase().startsWith("@nexus")
+          const startsWithNexus = item.text?.toLowerCase().startsWith("@nexus") || false
           const actualMessage = startsWithNexus ? item.text.slice(7) : item.text
+
+          // Generate a unique key using id + index + timestamp to ensure uniqueness
+          const messageKey = item.id
+            ? `${item.id}-${idx}`
+            : `temp-${item.tempId || idx}-${Date.now()}`
 
           return (
             <div
-              key={item.id || idx}
+              key={messageKey}
               onMouseEnter={() => setShowMenu(item.id)}
               onMouseLeave={() => setShowMenu(null)}
-              className={`flex ${item.isOwn ? 'justify-end' : 'justify-start'} items-start gap-2`}
+              className={`message-row ${item.isOwn ? 'own' : 'other'}`}
             >
               {!item.isOwn && activeChat?.isGroupChat && (
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                <div className="message-avatar">
                   {item?.sender?.name?.charAt(0).toUpperCase()}
                 </div>
               )}
 
-              <div className={`flex flex-col ${item.isOwn ? 'items-end' : 'items-start'} max-w-3xl`}>
+              <div className={`message-col ${item.isOwn ? 'own' : 'other'}`}>
                 {((!item.isOwn && activeChat?.isGroupChat) || isNexusAi) && (
-                  <span className="text-xs text-blue-500 dark:text-blue-400 mb-1 px-1">
+                  <span className="sender-name">
                     {isNexusAi && "🤖"} {item.sender?.name}
                   </span>
                 )}
 
-                <div className="relative">
+                <div className="message-wrapper">
                   {isMenuOpen && (
-                    <div
-                      className={`absolute ${item.isOwn ? '-left-20' : '-right-20'} flex items-center gap-1 bg-white/90 dark:bg-gray-900/90 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-full px-1 py-1 shadow z-10`}
-                    >
-                      <button
-                        onClick={() => handleReply(item)}
-                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition"
-                      >
-                        <Reply size={16} className="text-gray-600 dark:text-gray-300" />
+                    <div className={`message-actions ${item.isOwn ? 'own' : 'other'}`}>
+                      <button onClick={() => handleReply(item)} className="action-btn">
+                        <Reply size={16} />
                       </button>
                       <button
                         onClick={() => setShowEmojiPicker(prev => (prev === item.id ? null : item.id))}
-                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition"
+                        className="action-btn"
                       >
-                        <Smile size={16} className="text-gray-600 dark:text-gray-300" />
+                        <Smile size={16} />
                       </button>
                     </div>
                   )}
 
                   {isQuickOpen && (
                     <div
-                      className={`absolute -top-10 ${item.isOwn ? 'right-4' : 'left-4'} z-30`}
+                      className={`emoji-picker ${item.isOwn ? 'own' : 'other'}`}
                       onMouseLeave={() => setShowEmojiPicker(null)}
                     >
-                      <div className="flex items-center gap-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 py-1 rounded-full shadow">
-                        {["👍", "❤️", "😂", "😮", "😢"].map(e => (
-                          <button
-                            key={e}
-                            onClick={() => {
-                              handleReaction("add", item.id, e);
-                              setShowEmojiPicker(null);
-                            }}
-                            className="text-lg hover:scale-125 transition"
-                          >
-                            {e}
-                          </button>
-                        ))}
-                      </div>
+                      {["👍", "❤️", "😂", "😮", "😢"].map(e => (
+                        <button
+                          key={e}
+                          onClick={() => {
+                            handleReaction("add", item.id, e);
+                            setShowEmojiPicker(null);
+                          }}
+                          className="emoji-option"
+                        >
+                          {e}
+                        </button>
+                      ))}
                     </div>
                   )}
 
                   <div
-                    className={`py-2 pb-3 relative rounded-2xl shadow-sm ${
-                      // Check if it's a media-only message (no text)
-                      !item.text && item.attachments && item.attachments.length > 0
-                        ? '' // No background for media-only messages
-                        : item.isOwn
-                          ? 'bg-blue-500 text-white rounded-tr-none'
-                          : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-tl-none'
-                      } ${item?.reactions && Object.keys(item?.reactions).length > 0 ? "mb-3" : ""
-                      }`}
+                    className={`message-bubble ${item.isOwn ? 'own' : 'other'} ${!item.text && item.attachments && item.attachments.length > 0 ? 'media-only' : ''}`}
                   >
                     {item.threadId && (
-                      <div className="mb-2 px-2">
-                        <div className={`flex items-center bg-gray-100 dark:bg-gray-700/70 px-4 py-2 rounded-lg ${!item.isOwn ? 'border-l-blue-500' : 'border-l-blue-600'} border-l-4`}>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-md text-blue-500 dark:text-blue-400 truncate font-semibold">
-                              {user._id === item.threadId.sender?._id ? "You" : item.threadId.sender?.name}
-                            </p>
-                            <p className="text-sm text-gray-900 dark:text-white truncate">{item.threadId.content}</p>
-                            {item.threadId?.attachments?.length > 0 && (
-                              <div className="flex flex-wrap gap-2 py-2">
-                                {item.threadId?.attachments?.map((att, index) => (
-                                  <FilePreview index={index} att={att} />
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                      <div className={`reply-preview ${item.isOwn ? 'own' : 'other'}`}>
+                        <div className="reply-content">
+                          <p className={`reply-sender ${item.isOwn ? 'own' : 'other'}`}>
+                            {user._id === item.threadId.sender?._id ? "You" : item.threadId.sender?.name}
+                          </p>
+                          <p className={`reply-text ${item.isOwn ? 'own' : 'other'}`}>{item.threadId.content}</p>
+                          {item.threadId?.attachments?.length > 0 && (
+                            <div className="reply-attachments">
+                              {item.threadId?.attachments?.map((att, index) => (
+                                <FilePreview
+                                  key={`reply-att-${index}-${att.url || att.fileName}`}
+                                  index={index}
+                                  att={att}
+                                />
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
 
                     {item.attachments && item.attachments.length > 0 && (
-                      <div className={`${!item.text ? 'px-0' : 'px-4'}`}>
+                      <div className={`message-attachments ${!item.text ? 'no-text' : ''}`}>
                         <MediaMessage attachments={item.attachments} isOwn={item.isOwn} />
                       </div>
                     )}
 
                     {item.text && (
-                      <div className="px-4 flex flex-col">
-                        {isNexusAi ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
-                          ul: ({ children }) => (
-                            <ul className="list-disc pl-5 my-1 space-y-0.5">
-                              {children}
-                            </ul>
-                          ),
-                          li: ({ children }) => (
-                            <li className="leading-relaxed">
-                              {children}
-                            </li>
-                          ),
-                          strong: ({ children }) => (
-                            <strong className="font-semibold text-blue-400">
-                              {children}
-                            </strong>
-                          ),
-                          p: ({ children }) => (
-                            <p className="my-0.5 leading-relaxed">
-                              {children}
-                            </p>
-                          ),
-                          br: () => <br className="my-0.5" />,
-                          h1: ({ children }) => (
-                            <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400 my-2">
-                              {children}
-                            </h1>
-                          ),
-                          h2: ({ children }) => (
-                            <h2 className="text-xl font-semibold text-purple-600 dark:text-purple-400 my-1">
-                              {children}
-                            </h2>
-                          ),
-                          // Add emoji support
-                          p: ({ children }) => {
-                            // Check if children contains emoji and render appropriately
-                            return <p className="my-0.5 leading-relaxed">{children}</p>
-                          }
-                        }}>
-                          {actualMessage}
-                        </ReactMarkdown> :
-                          <p className="text-sm leading-relaxed break-words"><span className={`${!item.isOwn ? 'text-blue-500' : 'text-white'} font-bold`} >{startsWithNexus && "@Nexus "}</span>{actualMessage}</p>
-                        }
-                        <span className={`self-end text-xs mt-1 px-1 ${item.isOwn ? 'text-gray-100' : 'text-gray-400 dark:text-gray-300'}`}>
+                      <div className="message-text">
+                        {isNexusAi ? (
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              ul: ({ children }) => (
+                                <ul className="markdown-ul">{children}</ul>
+                              ),
+                              li: ({ children }) => (
+                                <li className="markdown-li">{children}</li>
+                              ),
+                              strong: ({ children }) => (
+                                <strong className="markdown-strong">{children}</strong>
+                              ),
+                              p: ({ children }) => (
+                                <p className="markdown-p">{children}</p>
+                              ),
+                              br: () => <br className="markdown-br" />,
+                              h1: ({ children }) => (
+                                <h1 className="markdown-h1">{children}</h1>
+                              ),
+                              h2: ({ children }) => (
+                                <h2 className="markdown-h2">{children}</h2>
+                              ),
+                            }}
+                          >
+                            {actualMessage}
+                          </ReactMarkdown>
+                        ) : (
+                          <p className="message-content">
+                            <span className={`nexus-tag ${!item.isOwn ? 'other' : 'own'}`}>
+                              {startsWithNexus && "@Nexus "}
+                            </span>
+                            {actualMessage}
+                          </p>
+                        )}
+                        <span className={`message-time ${item.isOwn ? 'own' : 'other'}`}>
                           {time}
                         </span>
                       </div>
                     )}
 
                     {!item.text && item.attachments && item.attachments.length > 0 && (
-                      <span className={`block text-right text-xs mt-1 px-4 ${item.isOwn ? 'text-gray-100' : 'text-gray-400 dark:text-gray-300'}`}>
+                      <span className={`message-time ${item.isOwn ? 'own' : 'other'}`}>
                         {time}
                       </span>
                     )}
@@ -713,12 +682,12 @@ const ChatHistory = () => {
                     {item.reactions && Object.keys(item.reactions).length > 0 && (
                       <div
                         onClick={() => handleReaction("remove", item.id)}
-                        className={`absolute ${item.isOwn ? 'right-2' : 'left-2'} -bottom-5 flex items-center text-sm bg-white/90 dark:bg-gray-900/90 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-full p-1 shadow cursor-pointer hover:bg-gray-600`}
+                        className={`reaction-badge ${item.isOwn ? 'own' : 'other'}`}
                       >
                         {Object.entries(item.reactions).map(([emoji, users]) => (
-                          <div key={emoji} className="px-1">
+                          <div key={emoji} className="reaction-item">
                             {emoji}
-                            <span className='text-xs'>
+                            <span className="reaction-count">
                               {Array.isArray(users) && users.length > 1 ? users.length : ""}
                             </span>
                           </div>
@@ -733,14 +702,10 @@ const ChatHistory = () => {
         })}
 
         {typingUsers && (
-
-
-          <div className="flex justify-start items-center gap-3">
-            <div className="px-4 py-2 rounded-2xl shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-tl-sm">
-              <div className="flex gap-1">
-                <span className="w-2 h-2 bg-gray-500 dark:bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                <span className="w-2 h-2 bg-gray-500 dark:bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                <span className="w-2 h-2 bg-gray-500 dark:bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+          <div className="typing-indicator">
+            <div className="typing-bubble">
+              <div className="typing-dots">
+                <span></span><span></span><span></span>
               </div>
             </div>
           </div>
@@ -750,64 +715,66 @@ const ChatHistory = () => {
       </div>
 
       {/* Message Input */}
-      <div className={`flex-shrink-5 border-none bg-white  m-4 dark:bg-gray-800 border-t border-gray-200 rounded-b-4xl dark:border-gray-700  py-2 ${currentReply ? "rounded-t-2xl" : "rounded-t-4xl"}`}>
-
+      <div className={`chat-input-container ${currentReply ? 'has-reply' : ''}`}>
         {currentReply && (
-          <div className="mb-2 px-4">
-            <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-700 px-4 py-2 rounded-lg border-l-blue-500 border-l-4">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-blue-500 dark:text-blue-400 truncate font-semibold">
-                  Replying to {user._id === currentReply.sender?._id ? "yourself" : currentReply.sender?.name}
-                </p>
-
-                <p className="text-sm text-gray-900 dark:text-white truncate">{currentReply.text}</p>
-                {currentReply?.attachments?.length > 0 && (
-                  <div className="flex flex-wrap gap-2 py-2">
-                    {currentReply.attachments?.map((att, index) => (
-                      <FilePreview index={index} att={att} />
-                    ))}
-                  </div>
-                )}
-              </div>
-              <button onClick={() => setCurrentReply(null)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors">
-                <XIcon size={16} className="text-gray-500" />
-              </button>
+          <div className="reply-input-preview">
+            <div className="reply-preview-content">
+              <p className="reply-label">Replying to {user._id === currentReply.sender?._id ? "yourself" : currentReply.sender?.name}</p>
+              <p className="reply-preview-text">{currentReply.text}</p>
+              {currentReply?.attachments?.length > 0 && (
+                <div className="reply-preview-attachments">
+                  {currentReply.attachments?.map((att, index) => (
+                    <FilePreview
+                      key={`reply-input-att-${index}-${att.url || att.fileName}`}
+                      index={index}
+                      att={att}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
+            <button onClick={() => setCurrentReply(null)} className="reply-close-btn">
+              <XIcon size={16} />
+            </button>
           </div>
         )}
 
-        {/* Attachment Preview Area */}
         {attachments.length > 0 && (
-          <div className="px-4 mb-2">
-            <div className="flex flex-wrap gap-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+          <div className="attachments-preview">
+            <div className="attachments-list">
               {attachments.map((att, index) => (
-                <FileAttachment att={att} index={index} handleRemoveAttachment={handleRemoveAttachment} key={index} />
+                <FileAttachment
+                  key={`attachment-${index}-${att.name || att.type}`}
+                  att={att}
+                  index={index}
+                  handleRemoveAttachment={handleRemoveAttachment}
+                />
               ))}
             </div>
           </div>
         )}
 
-        <div className="flex relative items-center gap-3 px-4">
-          {/* Attachment Modal */}
+        <div className="input-row">
           {showAttachmentModal && (
             <AttachmentModal setAttachments={setAttachments} setShowAttachmentModal={setShowAttachmentModal} />
           )}
 
           <button
             onClick={() => setShowAttachmentModal(!showAttachmentModal)}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors flex-shrink-0"
+            className="attachment-btn"
             disabled={uploading}
           >
-            <Paperclip size={20} className="text-gray-600 dark:text-gray-400" />
+            <Paperclip size={20} />
           </button>
 
-          <div className="flex-1 relative">
+          <div className="input-wrapper">
             {nexusMode && (
-              <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full text-sm font-medium">
+              <div className="nexus-mode-indicator">
+                <Sparkles size={14} />
                 <span>@nexus</span>
                 <button
                   onClick={() => { setNexusMode(false); setMessage('') }}
-                  className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5"
+                  className="nexus-mode-close"
                 >
                   <X size={12} />
                 </button>
@@ -815,18 +782,14 @@ const ChatHistory = () => {
             )}
             <input
               type="text"
-              placeholder={nexusMode ? "Ask Nexus AI..." : "Type a message.. (use @Nexus to ask AI)"}
+              placeholder={nexusMode ? "Ask Nexus AI..." : "Type a message... (use @Nexus to ask AI)"}
               value={message}
               onChange={handleTyping}
               onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
               disabled={uploading}
-              className={`w-full px-4 py-3 outline-none bg-inherit rounded-full focus:outline-none focus:ring-0 
-      ${nexusMode
-                  ? 'pl-24 text-gray-900 dark:text-white'
-                  : 'text-gray-900 dark:text-white'
-                }`}
+              className="message-input"
               style={{
-                paddingLeft: nexusMode ? '100px' : '16px'
+                paddingLeft: nexusMode ? '118px' : '16px'
               }}
             />
           </div>
@@ -834,12 +797,12 @@ const ChatHistory = () => {
           <button
             onClick={handleSendMessage}
             disabled={(!message?.trim() && attachments.length === 0) || uploading}
-            className="p-3 bg-blue-500 hover:bg-blue-600 rounded-full transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`send-btn }`}
           >
             {uploading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+              <div className="send-loader"></div>
             ) : (
-              <Send size={20} className="text-white" />
+              <Send size={19} />
             )}
           </button>
         </div>

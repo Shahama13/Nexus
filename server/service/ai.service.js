@@ -16,7 +16,6 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
     const pdfFile = req.file
     const attachment = req.body.attachment ? JSON.parse(req.body.attachment) : null
 
-    console.log(req.body.attachment, "Here is your attachment")
 
     res.setHeader("Content-Type", "text/event-stream")
     res.setHeader("Cache-Control", "no-cache")
@@ -72,7 +71,7 @@ export const streamChat = tryCatchWrapper(async (req, res) => {
         const result = await processAndStorePdf(pdfFile.buffer, userId, chatId)
         if (result.success) {
             pdfProcessed = true
-            console.log(`PDF processed: ${result.chunks} chunks for user`)
+            // console.log(`PDF processed: ${result.chunks} chunks for user`)
         }
     }
 
@@ -150,7 +149,7 @@ Reply with JSON only:
         }
     }
 
-    console.log("Classification:", { needsWebSearch, needsMemory, saveToMemory, needsPDF })
+    // console.log("Classification:", { needsWebSearch, needsMemory, saveToMemory, needsPDF })
 
     const hasImage = attachment && attachment.attachmentType === "image"
 
@@ -163,9 +162,9 @@ Reply with JSON only:
     if (needsPDF || hasPDF) {
         pdfChunks = await searchPDFContext(message, userId, chatId)
         if (pdfChunks.length > 0) {
-            console.log(`Found ${pdfChunks.length} relevant PDF chunks for user ${userId}`);
+            // console.log(`Found ${pdfChunks.length} relevant PDF chunks for user ${userId}`);
         } else {
-            console.log(`No relevant PDF chunks found for user ${userId}`);
+            // console.log(`No relevant PDF chunks found for user ${userId}`);
         }
     }
 
@@ -237,7 +236,7 @@ Remember: This is the user's first impression of you. Make it count!`;
         });
     }
 
-    console.log("Sending to AI:", JSON.stringify(openAIMessages, null, 2))
+    // console.log("Sending to AI:", JSON.stringify(openAIMessages, null, 2))
 
     try {
         const stream = await client.chat.completions.create({

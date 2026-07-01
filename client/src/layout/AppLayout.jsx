@@ -17,7 +17,7 @@ const AppLayout = () => {
 
 
       <Sidebar />
-      <div className="w-1/3 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+      <div className="w-1/3 flex flex-col">
         <LeftPanel />
       </div>
       <div className="w-2/3 flex flex-col">

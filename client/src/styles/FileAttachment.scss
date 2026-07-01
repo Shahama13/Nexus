@@ -1,0 +1,137 @@
+@import "./variables.scss";
+
+.file-attachment {
+    position: relative;
+    display: inline-block;
+    border-radius: $radius-md;
+    overflow: visible; // <-- was hidden
+    box-shadow: $shadow-soft;
+    transition: transform 0.15s ease;
+    color: $primary-text;
+
+    &:hover {
+        transform: translateY(-2px);
+
+        .remove-btn {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+    }
+}
+
+.attachment-preview {
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: $card-bg;
+    border: 1px solid $border-color;
+    border-radius: $radius-md;
+    overflow: hidden; // <-- moved here
+    position: relative;
+}
+
+.remove-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    background: $pdf-red;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all .2s ease;
+    z-index: 9999;
+
+
+
+    border: none;
+    font-size: 11px;
+    font-weight: 500;
+    padding: -16px 16px;
+    border-radius: 14px;
+
+
+
+    &:hover {
+        transform: scale(1.1);
+        background: darken($pdf-red, 10%);
+    }
+}
+
+.image-preview {
+    padding: 0;
+}
+
+.video-preview {
+    position: relative;
+
+    img {
+        object-fit: cover;
+    }
+
+    .video-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        transition: background 0.15s ease;
+
+        &:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+    }
+}
+
+.loading-preview {
+    background: $border-color;
+    animation: pulse-loading 1.5s ease-in-out infinite;
+
+    .loading-icon {
+        color: $secondary-text;
+    }
+}
+
+@keyframes pulse-loading {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.audio-preview {
+    background: $light-blue-bg;
+    color: $primary-blue;
+}
+
+.file-preview {
+    flex-direction: column;
+    gap: 4px;
+    background: $light-blue-bg;
+    color: $secondary-text;
+
+    .file-name-label {
+        font-size: 10px;
+        font-weight: 500;
+        color: $primary-text;
+        max-width: 60px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}

@@ -1,0 +1,107 @@
+@import "./variables.scss";
+
+.empty-chat-state {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px;
+  background: $main-bg;
+  box-sizing: border-box;
+}
+
+// ── Illustration ─────────────────────────
+.empty-chat-illustration {
+  position: relative;
+  width: 140px;
+  height: 110px;
+  margin-bottom: 28px;
+
+  .bubble {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 28px;
+    box-shadow: 0 8px 20px $box-shadow;
+  }
+
+  .bubble-back {
+    top: 0;
+    right: 0;
+    width: 64px;
+    height: 52px;
+    background: $card-bg;
+    border: 1px solid $border-color;
+    color: $muted-text;
+    border-radius: 20px 20px 4px 20px;
+  }
+
+  .bubble-front {
+    bottom: 0;
+    left: 0;
+    width: 84px;
+    height: 68px;
+    background: linear-gradient(135deg, #6366F1, $primary-blue);
+    color: #FFFFFF;
+    border-radius: 22px 22px 22px 4px;
+  }
+
+  .sparkle {
+    position: absolute;
+    color: $primary-blue;
+    opacity: 0.9;
+  }
+
+  .sparkle-one {
+    top: 6px;
+    left: 4px;
+  }
+
+  .sparkle-two {
+    bottom: 10px;
+    right: 6px;
+    color: #A78BFA;
+  }
+}
+
+// ── Copy ─────────────────────────
+.empty-chat-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: $primary-text;
+}
+
+.empty-chat-subtitle {
+  margin: 0 0 24px;
+  max-width: 320px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: $secondary-text;
+}
+
+// ── CTA ─────────────────────────
+.empty-chat-cta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: $primary-blue;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 11px 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 6px 16px $box-shadow;
+  transition: background 0.15s ease, transform 0.15s ease;
+
+  &:hover {
+    background: $hover-blue;
+    transform: translateY(-1px);
+  }
+}

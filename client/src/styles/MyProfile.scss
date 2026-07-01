@@ -1,0 +1,269 @@
+@import "./variables.scss";
+
+.my-profile {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: $main-bg;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+.my-profile-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.my-profile-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+// ── Shared card ─────────────────────────
+.profile-card {
+  background: $card-bg;
+  border: 1px solid $border-color;
+  border-radius: 16px;
+}
+
+// ── Avatar ─────────────────────────
+.avatar-card {
+  padding: 32px;
+  display: flex;
+  justify-content: center;
+}
+
+.avatar-wrapper {
+  position: relative;
+}
+
+.avatar-circle {
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #6366F1, $primary-blue);
+  color: #FFFFFF;
+  font-size: 40px;
+  font-weight: 700;
+}
+
+.avatar-camera-btn {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: $primary-blue;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 16px $box-shadow;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: $hover-blue;
+  }
+}
+
+// ── Fields ─────────────────────────
+.fields-card {
+  overflow: hidden;
+}
+
+.profile-field {
+  padding: 20px;
+  border-bottom: 1px solid $border-color;
+
+  &.last {
+    border-bottom: none;
+  }
+}
+
+.field-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.field-icon {
+  margin-top: 2px;
+  color: $secondary-text;
+  flex-shrink: 0;
+}
+
+.field-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-label {
+  display: block;
+  font-size: 12px;
+  color: $muted-text;
+  margin-bottom: 4px;
+}
+
+.field-value {
+  margin: 0;
+  font-size: 15px;
+  color: $primary-text;
+}
+
+.field-edit-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: $sidebar-bg;
+  }
+}
+
+// ── Editing state ─────────────────────────
+.field-editing {
+  .field-label {
+    margin-bottom: 8px;
+  }
+}
+
+.field-input,
+.field-textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 15px;
+  color: $primary-text;
+  outline: none;
+  font-family: inherit;
+}
+
+.field-textarea {
+  resize: none;
+}
+
+.username-input-row {
+  display: flex;
+  align-items: center;
+
+  .username-at {
+    color: $muted-text;
+    margin-right: 2px;
+  }
+
+  .field-input {
+    flex: 1;
+  }
+}
+
+.field-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: $muted-text;
+}
+
+.field-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.save-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  background: $primary-blue;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: $hover-blue;
+  }
+}
+
+.cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  background: $sidebar-bg;
+  color: $secondary-text;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: $border-color;
+    color: $primary-text;
+  }
+}
+
+// ── Logout ─────────────────────────
+.logout-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  background: $card-bg;
+  border: 1px solid $danger-red-border;
+  border-radius: 16px;
+  padding: 20px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: $danger-red-bg;
+
+    .logout-chevron {
+      color: $danger-red;
+    }
+  }
+}
+
+.logout-icon {
+  color: $danger-red;
+  flex-shrink: 0;
+}
+
+.logout-text {
+  flex: 1;
+  text-align: left;
+}
+
+.logout-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: $danger-red;
+}
+
+.logout-subtitle {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #F87171;
+}
+
+.logout-chevron {
+  color: #FCA5A5;
+  transition: color 0.15s ease;
+}

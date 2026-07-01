@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Play, Volume2, Download, File, FileText, ExternalLink } from 'lucide-react';
-
+import '../styles/MediaMessage.scss';
 
 const MediaMessage = ({ attachments, isOwn }) => {
     const [isPlaying, setIsPlaying] = useState({});
@@ -21,7 +21,7 @@ const MediaMessage = ({ attachments, isOwn }) => {
                     <img
                         src={attachment.url}
                         alt={attachment.fileName || 'Image'}
-                        className="w-[30vw] rounded-lg cursor-pointer hover:opacity-90 transition "
+                        className="media-image"
                         onClick={() => window.open(attachment.url, '_blank')}
                         loading="lazy"
                     />
@@ -29,73 +29,61 @@ const MediaMessage = ({ attachments, isOwn }) => {
 
             case 'video':
                 return (
-                    <div className="relative group">
+                    <div className="media-video-wrapper">
                         <video
                             controls
-                            className="w-[30vw] rounded-lg"
+                            className="media-video"
                             poster={attachment.thumbnail || undefined}
                             preload="metadata"
                         >
                             <source src={attachment.url} type={attachment.mimeType || 'video/mp4'} />
                             Your browser does not support the video tag.
                         </video>
-
                     </div>
                 );
 
             case 'audio':
                 return (
-                    <div className=" min-w-[250px]">
-
-                        <audio controls className="w-full mt-2">
+                    <div className="media-audio-wrapper">
+                        <audio controls className="media-audio">
                             <source src={attachment.url} type={attachment.mimeType || 'audio/mpeg'} />
                         </audio>
-
                     </div>
                 );
-
 
             default:
                 return (
-
                     <div
                         key={index}
-                        className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                        className="media-file"
                         onClick={() => window.open(attachment.url, '_blank')}
                     >
-                        <div className="flex-shrink-0">
-                            <FileText size={24} className="text-red-500" />
+                        <div className="file-icon-wrapper">
+                            <FileText size={24} className="file-icon" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        <div className="file-info">
+                            <p className="file-name">
                                 {attachment.fileName || 'PDF'}
                             </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                            <p className="file-meta">
                                 {attachment.fileType || 'PDF'} • {(attachment.size / 1024).toFixed(1)} KB
                             </p>
                         </div>
-                        <ExternalLink size={16} className="text-gray-400 flex-shrink-0" />
+                        <ExternalLink size={16} className="file-external" />
                     </div>
-
-
                 );
         }
-    }
-    const formatFileSize = (bytes) => {
-        if (!bytes) return 'Unknown size';
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(1024));
-        return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
     };
+
     return (
-        <div className="space-x-2 flex flex-row">
+        <div className="media-message">
             {attachments.map((attachment, index) => (
-                <div key={index}>
+                <div key={index} className="media-item">
                     {renderMedia(attachment, index)}
                 </div>
             ))}
         </div>
-    )
-}
+    );
+};
 
-export default MediaMessage
+export default MediaMessage;

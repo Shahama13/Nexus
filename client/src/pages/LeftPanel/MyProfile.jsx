@@ -3,10 +3,11 @@ import { User, MessageSquare, LogOut, Camera, ChevronRight, Check, X } from 'luc
 import { logout } from '../../services/auth'
 import { useAuth } from '../../store/auth'
 import { useUIStore } from '../../store/uiStore'
+import '../../styles/MyProfile.scss'
 
 export default function MyProfile() {
   const { clearUser, user } = useAuth()
-  const { setActiveChat,setLeftView ,setRightView} = useUIStore()
+  const { setActiveChat, setLeftView, setRightView } = useUIStore()
   const [username, setUsername] = useState(user.email.split("@")[0])
   const [name, setName] = useState(user.name)
   const [about, setAbout] = useState('Hey there! I am using Nexus.')
@@ -41,175 +42,156 @@ export default function MyProfile() {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 h-screen">
+    <div className="my-profile">
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto p-6 space-y-4">
+      <div className="my-profile-scroll">
+        <div className="my-profile-inner">
+
           {/* Profile Avatar Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 flex justify-center">
-            <div className="relative">
-              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-4xl font-bold">
+          <div className="profile-card avatar-card">
+            <div className="avatar-wrapper">
+              <div className="avatar-circle">
                 {name.charAt(0).toUpperCase()}
               </div>
-              <button className="absolute bottom-2 right-2 w-10 h-10 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center text-white transition-colors shadow-lg">
+              {/* <button className="avatar-camera-btn">
                 <Camera size={20} />
-              </button>
+              </button> */}
             </div>
           </div>
 
           {/* Profile Fields */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="profile-card fields-card">
             {/* Name Field */}
-            <div className="p-5 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-start gap-4">
-                <div className="text-gray-600 dark:text-gray-400 mt-1">
+            <div className="profile-field">
+              <div className="field-row">
+                <div className="field-icon">
                   <User size={22} />
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="field-content">
                   {editingField === 'name' ? (
-                    <div>
-                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">Name</label>
+                    <div className="field-editing">
+                      <label className="field-label">Name</label>
                       <input
                         type="text"
                         value={tempValue}
                         onChange={(e) => setTempValue(e.target.value)}
-                        className="w-full bg-transparent border-0 text-gray-900 dark:text-white text-base focus:outline-none p-0"
+                        className="field-input"
                         autoFocus
                       />
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      <p className="field-hint">
                         This is your display name that others will see.
                       </p>
-                      <div className="flex gap-2 mt-3">
-                        <button
-                          onClick={() => handleSave('name')}
-                          className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-                        >
+                      <div className="field-actions">
+                        <button onClick={() => handleSave('name')} className="save-btn">
                           <Check size={18} />
                         </button>
-                        <button
-                          onClick={handleCancel}
-                          className="p-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
-                        >
+                        <button onClick={handleCancel} className="cancel-btn">
                           <X size={18} />
                         </button>
                       </div>
                     </div>
                   ) : (
                     <div>
-                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Name</label>
-                      <p className="text-gray-900 dark:text-white text-base">{name}</p>
+                      <label className="field-label">Name</label>
+                      <p className="field-value">{name}</p>
                     </div>
                   )}
                 </div>
                 {editingField !== 'name' && (
                   <button
                     onClick={() => handleEdit('name', name)}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-400 transition-colors"
-                  >
-                    {/* Edit icon removed but button retained for future use */}
-                  </button>
+                    className="field-edit-btn"
+                    aria-label="Edit name"
+                  />
                 )}
               </div>
             </div>
 
             {/* Username Field */}
-            <div className="p-5 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-start gap-4">
-                <div className="text-gray-600 dark:text-gray-400 mt-1">
+            <div className="profile-field">
+              <div className="field-row">
+                <div className="field-icon">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                     <circle cx="12" cy="7" r="4" />
                   </svg>
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="field-content">
                   {editingField === 'username' ? (
-                    <div>
-                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">Username</label>
-                      <div className="flex items-center">
-                        <span className="text-gray-500 dark:text-gray-400 mr-1">@</span>
+                    <div className="field-editing">
+                      <label className="field-label">Username</label>
+                      <div className="username-input-row">
+                        <span className="username-at">@</span>
                         <input
                           type="text"
                           value={tempValue}
                           onChange={(e) => setTempValue(e.target.value)}
-                          className="flex-1 bg-transparent border-0 text-gray-900 dark:text-white text-base focus:outline-none p-0"
+                          className="field-input"
                           autoFocus
                         />
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      <p className="field-hint">
                         Your unique username for identification.
                       </p>
-                      <div className="flex gap-2 mt-3">
-                        <button
-                          onClick={() => handleSave('username')}
-                          className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-                        >
+                      <div className="field-actions">
+                        <button onClick={() => handleSave('username')} className="save-btn">
                           <Check size={18} />
                         </button>
-                        <button
-                          onClick={handleCancel}
-                          className="p-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
-                        >
+                        <button onClick={handleCancel} className="cancel-btn">
                           <X size={18} />
                         </button>
                       </div>
                     </div>
                   ) : (
                     <div>
-                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Username</label>
-                      <p className="text-gray-900 dark:text-white text-base">@{username}</p>
+                      <label className="field-label">Username</label>
+                      <p className="field-value">@{username}</p>
                     </div>
                   )}
                 </div>
                 {editingField !== 'username' && (
                   <button
                     onClick={() => handleEdit('username', username)}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-400 transition-colors"
-                  >
-                    {/* Edit icon removed but button retained for future use */}
-                  </button>
+                    className="field-edit-btn"
+                    aria-label="Edit username"
+                  />
                 )}
               </div>
             </div>
 
             {/* About Field */}
-            <div className="p-5">
-              <div className="flex items-start gap-4">
-                <div className="text-gray-600 dark:text-gray-400 mt-1">
+            <div className="profile-field last">
+              <div className="field-row">
+                <div className="field-icon">
                   <MessageSquare size={22} />
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="field-content">
                   {editingField === 'about' ? (
-                    <div>
-                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">About</label>
+                    <div className="field-editing">
+                      <label className="field-label">About</label>
                       <textarea
                         value={tempValue}
                         onChange={(e) => setTempValue(e.target.value)}
                         rows={3}
-                        className="w-full bg-transparent border-0 text-gray-900 dark:text-white text-base focus:outline-none p-0 resize-none"
+                        className="field-textarea"
                         autoFocus
                       />
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      <p className="field-hint">
                         This will be visible to your contacts.
                       </p>
-                      <div className="flex gap-2 mt-3">
-                        <button
-                          onClick={() => handleSave('about')}
-                          className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-                        >
+                      <div className="field-actions">
+                        <button onClick={() => handleSave('about')} className="save-btn">
                           <Check size={18} />
                         </button>
-                        <button
-                          onClick={handleCancel}
-                          className="p-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
-                        >
+                        <button onClick={handleCancel} className="cancel-btn">
                           <X size={18} />
                         </button>
                       </div>
                     </div>
                   ) : (
                     <div>
-                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">About</label>
-                      <p className="text-gray-900 dark:text-white text-base">{about}</p>
+                      <label className="field-label">About</label>
+                      <p className="field-value">{about}</p>
                     </div>
                   )}
                 </div>
@@ -218,21 +200,17 @@ export default function MyProfile() {
           </div>
 
           {/* Logout Button */}
-          <button
-            onClick={handleLogout}
-            className="w-full bg-white dark:bg-gray-800 rounded-xl border border-red-200 dark:border-red-900/50 p-5 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="text-red-600 dark:text-red-400">
-                <LogOut size={22} />
-              </div>
-              <div className="flex-1 text-left">
-                <h3 className="font-semibold text-red-600 dark:text-red-400">Logout</h3>
-                <p className="text-sm text-red-500 dark:text-red-400/80">Sign out of your account</p>
-              </div>
-              <ChevronRight size={20} className="text-red-400 group-hover:text-red-600 dark:group-hover:text-red-300 transition-colors" />
+          <button onClick={handleLogout} className="logout-card">
+            <div className="logout-icon">
+              <LogOut size={22} />
             </div>
+            <div className="logout-text">
+              <h3 className="logout-title">Logout</h3>
+              <p className="logout-subtitle">Sign out of your account</p>
+            </div>
+            <ChevronRight size={20} className="logout-chevron" />
           </button>
+
         </div>
       </div>
     </div>

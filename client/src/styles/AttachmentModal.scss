@@ -1,0 +1,134 @@
+
+@import "./variables.scss";
+
+.attachment-modal {
+    position: absolute;
+    bottom: 54px;
+    left: 12px;
+    background: $card-bg;
+    border-radius: $radius-lg;
+    box-shadow: $shadow-card;
+    padding: 12px;
+    min-width: 180px;
+    z-index: 50;
+    border: 1px solid $border-color;
+    animation: modal-slide-up 0.2s ease-out;
+}
+
+@keyframes modal-slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid $border-color;
+    margin-bottom: 8px;
+
+    .modal-icon {
+        color: $primary-blue;
+    }
+
+    .modal-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: $primary-text;
+    }
+}
+
+.modal-options {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.modal-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    border-radius: $radius-sm;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    width: 100%;
+    text-align: left;
+
+    &:hover {
+        background: $sidebar-bg;
+    }
+
+    .option-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .image-icon {
+        background: rgba(34, 197, 94, 0.15);
+        color: $success-green;
+    }
+
+    .video-icon {
+        background: rgba(88, 101, 242, 0.15);
+        color: $primary-blue;
+    }
+
+    .audio-icon {
+        background: rgba(139, 92, 246, 0.15);
+        color: #8B5CF6;
+    }
+
+    .pdf-icon {
+        background: rgba(224, 82, 75, 0.15);
+        color: $pdf-red;
+    }
+
+    .option-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: $primary-text;
+    }
+}
+
+// Responsive
+@media (max-width: 640px) {
+    .attachment-modal {
+        min-width: 150px;
+        padding: 10px;
+        bottom: 48px;
+        left: 8px;
+    }
+
+    .modal-option {
+        padding: 6px 10px;
+
+        .option-icon {
+            width: 28px;
+            height: 28px;
+
+            svg {
+                width: 16px;
+                height: 16px;
+            }
+        }
+
+        .option-label {
+            font-size: 12px;
+        }
+    }
+}

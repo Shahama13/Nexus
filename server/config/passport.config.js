@@ -59,7 +59,7 @@ passport.use(new GoogleStrategy({
             admin: new mongoose.Types.ObjectId(process.env.BOT_USER_ID)
         });
 
-        mem0.add([{ role: "user", content: `My name is ${name}` }], {
+        mem0.add([{ role: "user", content: `My name is ${user.name}` }], {
             user_id: user._id.toString()
         })
 
