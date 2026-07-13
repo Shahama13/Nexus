@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
 env:
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/nexus-app
 
@@ -30,6 +34,8 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: ${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             VITE_API_URL=https://nexus-shahama.duckdns.org
 
@@ -52,3 +58,4 @@ jobs:
               -p 3000:3000 \
               --env-file /home/ubuntu/nexus/server/.env \
               ${{ secrets.DOCKERHUB_USERNAME }}/nexus-app:latest
+            docker image prune -f
