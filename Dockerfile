@@ -12,6 +12,7 @@ RUN npm run build
 
 # ---------- SERVER BUILD STAGE ----------
 FROM base AS server-builder
+RUN apk add --no-cache python3 make g++
 WORKDIR /app/server
 COPY server/package*.json ./
 RUN npm install --omit=dev
